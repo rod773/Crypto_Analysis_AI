@@ -14,11 +14,15 @@ try {
     console.log('API route backed up and removed for static export')
   }
 
-  // Build Next.js static export
+  // Build Next.js static export with Vercel API URL for Tauri
   execSync('npx next build', {
     cwd: path.resolve(__dirname, '..'),
     stdio: 'inherit',
-    env: { ...process.env, NEXT_STATIC_EXPORT: 'true' },
+    env: {
+      ...process.env,
+      NEXT_STATIC_EXPORT: 'true',
+      NEXT_PUBLIC_VERCEL_URL: 'crypto-analysis-7ptemnims-rod773s-projects.vercel.app',
+    },
   })
 
   // Ensure out/.nojekyll exists

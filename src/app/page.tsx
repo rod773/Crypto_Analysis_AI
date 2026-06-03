@@ -64,19 +64,24 @@ export default function Home() {
     setInput('')
     setLoading(true)
 
-    const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
-    const apiUrl = isTauri
-      ? `https://crypto-analysis-ai-nine.vercel.app/api/analyze?ai=false&asset=${asset}`
-      : `/api/analyze?ai=false&asset=${asset}`
+    const vercelApi = process.env.NEXT_PUBLIC_VERCEL_URL
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api/analyze?ai=false&asset=${asset}`
+      : `https://crypto-analysis-ai-nine.vercel.app/api/analyze?ai=false&asset=${asset}`
+    const apiUrls = [`/api/analyze?ai=false&asset=${asset}`, vercelApi]
 
-    try {
-      const res = await fetch(apiUrl)
-      if (!res.ok) throw new Error('Failed to fetch')
-      const data: AnalysisResult = await res.json()
+    let data: AnalysisResult | null = null
+    for (const url of apiUrls) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
+        if (res.ok) { data = await res.json(); break }
+      } catch { continue }
+    }
+
+    if (data) {
       setMessages((prev) =>
         prev.map((m) => (m.id === loadingMsg.id ? { ...m, loading: false, analysis: data } : m))
       )
-    } catch {
+    } else {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === loadingMsg.id
@@ -84,9 +89,8 @@ export default function Home() {
             : m
         )
       )
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   function switchAsset(newAsset: Asset) {
