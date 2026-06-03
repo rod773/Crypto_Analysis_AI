@@ -396,7 +396,8 @@ function TimeframeSummary({ timeframe }: { timeframe: AnalysisResult['timeframe'
   )
 }
 
-function SmcSummary({ smc }: { smc: AnalysisResult['smc'] }) {
+function SmcSummary({ smc }: { smc?: AnalysisResult['smc'] }) {
+  if (!smc) return <div className="text-sm text-muted-foreground/60 italic">Datos SMC no disponibles</div>
   const structIcon = smc.marketStructure === 'uptrend' ? '📈' : smc.marketStructure === 'downtrend' ? '📉' : '➡️'
   const structColor = smc.marketStructure === 'uptrend' ? 'text-green-500' : smc.marketStructure === 'downtrend' ? 'text-red-500' : 'text-yellow-500'
 
@@ -488,7 +489,8 @@ function SmcSummary({ smc }: { smc: AnalysisResult['smc'] }) {
   )
 }
 
-function ElliottWaveSummary({ ew }: { ew: AnalysisResult['elliottWave'] }) {
+function ElliottWaveSummary({ ew }: { ew?: AnalysisResult['elliottWave'] }) {
+  if (!ew) return <div className="text-sm text-muted-foreground/60 italic">Datos de ondas Elliott no disponibles</div>
   const isImpulse = ew.trend === 'impulse'
   const isBullishWave = isImpulse && ew.currentWave <= 3
   const isLateWave = isImpulse && ew.currentWave >= 4
@@ -680,14 +682,18 @@ export function ChatMessage({ role, content, analysis, loading }: ChatMessagePro
                               <SectionHeader icon={<LayersIcon className="h-3 w-3" />} label="Multi-Timeframe" />
                               <TimeframeSummary timeframe={analysis.timeframe} />
                             </div>
-                            <div className="space-y-2">
-                              <SectionHeader icon={<ZapIcon className="h-3 w-3" />} label="Ondas Elliott" />
-                              <ElliottWaveSummary ew={analysis.elliottWave} />
-                            </div>
-                            <div className="space-y-2">
-                              <SectionHeader icon={<BrainCircuitIcon className="h-3 w-3" />} label="Smart Money" />
-                              <SmcSummary smc={analysis.smc} />
-                            </div>
+                            {analysis.elliottWave && (
+                              <div className="space-y-2">
+                                <SectionHeader icon={<ZapIcon className="h-3 w-3" />} label="Ondas Elliott" />
+                                <ElliottWaveSummary ew={analysis.elliottWave} />
+                              </div>
+                            )}
+                            {analysis.smc && (
+                              <div className="space-y-2">
+                                <SectionHeader icon={<BrainCircuitIcon className="h-3 w-3" />} label="Smart Money" />
+                                <SmcSummary smc={analysis.smc} />
+                              </div>
+                            )}
                             <div className="space-y-2">
                               <SectionHeader icon={<GlobeIcon className="h-3 w-3" />} label="Macro" />
                               <MacroSummary macro={analysis.macro} />

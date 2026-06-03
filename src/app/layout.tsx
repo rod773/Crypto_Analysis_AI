@@ -16,11 +16,7 @@ export const metadata: Metadata = {
   title: "Crypto Analysis AI — ¿Comprar o Vender ETH?",
   description:
     "Análisis inteligente de Ethereum con datos en tiempo real de 10+ fuentes. Recomendaciones de compra/venta con IA.",
-  icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-    ],
-  },
+
   openGraph: {
     title: "Crypto Analysis AI",
     description: "Análisis de Ethereum en tiempo real con IA",
