@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   ArrowUpIcon, ArrowDownIcon, MinusIcon, TrendingUpIcon, TrendingDownIcon,
   AlertTriangleIcon, ChevronDownIcon, ActivityIcon, WalletIcon,
-  NewspaperIcon, BarChart3Icon, BookOpenIcon, FishSymbolIcon, GlobeIcon, LayersIcon,
+  NewspaperIcon, BarChart3Icon, BookOpenIcon, FishSymbolIcon, GlobeIcon, LayersIcon, ZapIcon, BrainCircuitIcon,
 } from 'lucide-react'
 import type { AnalysisResult, Asset } from '@/lib/types'
 
@@ -396,6 +396,159 @@ function TimeframeSummary({ timeframe }: { timeframe: AnalysisResult['timeframe'
   )
 }
 
+function SmcSummary({ smc }: { smc: AnalysisResult['smc'] }) {
+  const structIcon = smc.marketStructure === 'uptrend' ? '📈' : smc.marketStructure === 'downtrend' ? '📉' : '➡️'
+  const structColor = smc.marketStructure === 'uptrend' ? 'text-green-500' : smc.marketStructure === 'downtrend' ? 'text-red-500' : 'text-yellow-500'
+
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-2"
+    >
+      <div className="flex items-center gap-2">
+        <span className={`text-sm font-semibold ${structColor}`}>
+          {structIcon} {smc.marketStructure === 'uptrend' ? 'Uptrend' : smc.marketStructure === 'downtrend' ? 'Downtrend' : 'Rango'}
+        </span>
+        {smc.structureShift && (
+          <Badge variant="outline" className="text-xs border-yellow-500/30 text-yellow-500 bg-yellow-500/5">
+            MSS detectado
+          </Badge>
+        )}
+        {smc.lastBos && (
+          <Badge variant="outline" className={`text-xs ${smc.lastBos === 'bullish' ? 'border-green-500/30 text-green-500 bg-green-500/5' : 'border-red-500/30 text-red-500 bg-red-500/5'}`}>
+            BOS {smc.lastBos === 'bullish' ? 'Alcista' : 'Bajista'}
+          </Badge>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <motion.div variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
+          <div className="text-sm text-muted-foreground font-medium">Liquidez Arriba</div>
+          <div className="text-base font-mono font-bold text-green-500">${smc.liquidityAbove.toLocaleString()}</div>
+        </motion.div>
+        <motion.div variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
+          <div className="text-sm text-muted-foreground font-medium">Liquidez Abajo</div>
+          <div className="text-base font-mono font-bold text-red-500">${smc.liquidityBelow.toLocaleString()}</div>
+        </motion.div>
+      </div>
+
+      {smc.orderBlocks.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Order Blocks</div>
+          <div className="space-y-1">
+            {smc.orderBlocks.map((ob, i) => (
+              <motion.div key={i} variants={itemVariants} className="flex items-center justify-between rounded-lg border border-border/30 bg-card/20 px-2.5 py-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-mono ${ob.type === 'bullish' ? 'text-green-500' : 'text-red-500'}`}>
+                    {ob.type === 'bullish' ? '▲' : '▼'} OB
+                  </span>
+                  <span className="text-sm font-mono text-foreground/80">${ob.price.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-medium ${ob.touched ? 'text-yellow-500' : 'text-muted-foreground/60'}`}>
+                    {ob.touched ? 'Tocado' : 'Intacto'}
+                  </span>
+                  <Badge variant="outline" className={`text-[10px] h-4 px-1.5 ${ob.strength === 'strong' ? 'border-green-500/30 text-green-500' : ob.strength === 'moderate' ? 'border-yellow-500/30 text-yellow-500' : 'border-border/30 text-muted-foreground'}`}>
+                    {ob.strength === 'strong' ? 'Fuerte' : ob.strength === 'moderate' ? 'Medio' : 'Débil'}
+                  </Badge>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {smc.fvgs.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Fair Value Gaps</div>
+          <div className="space-y-1">
+            {smc.fvgs.map((fvg, i) => (
+              <motion.div key={i} variants={itemVariants} className="flex items-center justify-between rounded-lg border border-border/30 bg-card/20 px-2.5 py-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-mono ${fvg.type === 'bullish' ? 'text-green-500' : 'text-red-500'}`}>
+                    {fvg.type === 'bullish' ? '▲' : '▼'} FVG
+                  </span>
+                  <span className="text-xs font-mono text-foreground/80">
+                    ${fvg.lower.toLocaleString()} – ${fvg.upper.toLocaleString()}
+                  </span>
+                </div>
+                <span className={`text-[10px] font-medium ${fvg.filled ? 'text-muted-foreground/60' : 'text-yellow-500'}`}>
+                  {fvg.filled ? 'Relleno' : 'Abierto'}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p className="text-sm text-muted-foreground/80 leading-relaxed">{smc.description}</p>
+    </motion.div>
+  )
+}
+
+function ElliottWaveSummary({ ew }: { ew: AnalysisResult['elliottWave'] }) {
+  const isImpulse = ew.trend === 'impulse'
+  const isBullishWave = isImpulse && ew.currentWave <= 3
+  const isLateWave = isImpulse && ew.currentWave >= 4
+  const color = isBullishWave ? 'text-green-500' : isLateWave ? 'text-yellow-500' : ew.trend === 'corrective' ? 'text-red-500' : 'text-muted-foreground'
+
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-2"
+    >
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className={`font-mono text-xs ${color} border-current/20 bg-current/5`}>
+          {ew.waveCount}
+        </Badge>
+        <div className="flex-1 h-2 rounded-full bg-border/30 overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${ew.completeness}%` }}
+            transition={{ duration: 1, ease: 'easeOut' }}
+            className={`h-full rounded-full ${isBullishWave ? 'bg-green-500' : isLateWave ? 'bg-yellow-500' : 'bg-red-500'}`}
+          />
+        </div>
+        <span className="text-xs font-mono text-muted-foreground">{ew.completeness}%</span>
+      </div>
+
+      {ew.subWaves.length > 0 && (
+        <div className="grid grid-cols-5 gap-1">
+          {ew.subWaves.map((w, i) => (
+            <motion.div
+              key={i}
+              variants={itemVariants}
+              className="rounded-lg border border-border/30 bg-card/20 p-1.5 text-center"
+            >
+              <div className="text-[10px] font-mono text-muted-foreground truncate">{w.label}</div>
+              <div className="text-[10px] font-mono font-bold text-foreground/80">
+                ${w.high.toLocaleString()}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 text-sm">
+        <div>
+          <span className="text-muted-foreground/60 text-xs">Objetivo: </span>
+          <span className={`font-mono font-semibold ${color}`}>${ew.nextTarget.toLocaleString()}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground/60 text-xs">Invalida: </span>
+          <span className="font-mono font-semibold text-red-400">${ew.invalidationLevel.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <p className="text-sm text-muted-foreground/80 leading-relaxed">{ew.description}</p>
+    </motion.div>
+  )
+}
+
 function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -526,6 +679,14 @@ export function ChatMessage({ role, content, analysis, loading }: ChatMessagePro
                             <div className="space-y-2">
                               <SectionHeader icon={<LayersIcon className="h-3 w-3" />} label="Multi-Timeframe" />
                               <TimeframeSummary timeframe={analysis.timeframe} />
+                            </div>
+                            <div className="space-y-2">
+                              <SectionHeader icon={<ZapIcon className="h-3 w-3" />} label="Ondas Elliott" />
+                              <ElliottWaveSummary ew={analysis.elliottWave} />
+                            </div>
+                            <div className="space-y-2">
+                              <SectionHeader icon={<BrainCircuitIcon className="h-3 w-3" />} label="Smart Money" />
+                              <SmcSummary smc={analysis.smc} />
                             </div>
                             <div className="space-y-2">
                               <SectionHeader icon={<GlobeIcon className="h-3 w-3" />} label="Macro" />

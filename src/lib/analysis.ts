@@ -1,5 +1,5 @@
 import type { RawSourceData } from './sources'
-import type { AnalysisResult, Asset, PriceData, TechnicalIndicators, OnChainData, SentimentData, FundamentalData, SourceInfo, OrderBookData, WhaleData, MacroData, TimeframeData } from './types'
+import type { AnalysisResult, Asset, PriceData, TechnicalIndicators, OnChainData, SentimentData, FundamentalData, SourceInfo, OrderBookData, WhaleData, MacroData, TimeframeData, ElliottWaveData, SmcData } from './types'
 import { getAssetConfig } from './types'
 
 function parsePriceData(sources: RawSourceData[]): PriceData {
@@ -146,6 +146,34 @@ function parseTimeframeData(sources: RawSourceData[]): TimeframeData {
   }
 }
 
+function parseElliottWaveData(sources: RawSourceData[]): ElliottWaveData {
+  const ew = sources.find((s) => s.name === 'Elliott Wave')?.data as Record<string, unknown> | undefined
+  return {
+    waveCount: (ew?.waveCount as string) ?? '—',
+    currentWave: (ew?.currentWave as number) ?? 0,
+    trend: (ew?.trend as ElliottWaveData['trend']) ?? 'neutral',
+    completeness: (ew?.completeness as number) ?? 0,
+    nextTarget: (ew?.nextTarget as number) ?? 0,
+    invalidationLevel: (ew?.invalidationLevel as number) ?? 0,
+    subWaves: (ew?.subWaves as ElliottWaveData['subWaves']) ?? [],
+    description: (ew?.description as string) ?? '',
+  }
+}
+
+function parseSmcData(sources: RawSourceData[]): SmcData {
+  const smc = sources.find((s) => s.name === 'Smart Money Concepts')?.data as Record<string, unknown> | undefined
+  return {
+    marketStructure: (smc?.marketStructure as SmcData['marketStructure']) ?? 'ranging',
+    structureShift: (smc?.structureShift as boolean) ?? false,
+    lastBos: (smc?.lastBos as SmcData['lastBos']) ?? null,
+    orderBlocks: (smc?.orderBlocks as SmcData['orderBlocks']) ?? [],
+    fvgs: (smc?.fvgs as SmcData['fvgs']) ?? [],
+    liquidityAbove: (smc?.liquidityAbove as number) ?? 0,
+    liquidityBelow: (smc?.liquidityBelow as number) ?? 0,
+    description: (smc?.description as string) ?? '',
+  }
+}
+
 function buildVerdict(
   price: number,
   technical: TechnicalIndicators,
@@ -154,6 +182,8 @@ function buildVerdict(
   orderBook: OrderBookData,
   whaleData: WhaleData,
   timeframe: TimeframeData,
+  elliottWave: ElliottWaveData,
+  smc: SmcData,
 ): AnalysisResult['verdict'] {
   const bearishScore =
     (technical.trend === 'bearish' ? 3 : 0) +
@@ -163,7 +193,11 @@ function buildVerdict(
     (orderBook.bidAskRatio < 0.9 ? 2 : 0) +
     (whaleData.accumulation === 'distributing' ? 2 : 0) +
     (timeframe.dominantTrend === 'bearish' ? 3 : timeframe.dominantTrend === 'bullish' ? -1 : 0) +
-    (timeframe.alignment === 'aligned' && timeframe.dominantTrend === 'bearish' ? 3 : 0)
+    (timeframe.alignment === 'aligned' && timeframe.dominantTrend === 'bearish' ? 3 : 0) +
+    (elliottWave.trend === 'impulse' && elliottWave.currentWave >= 5 ? 3 : 0) +
+    (elliottWave.currentWave <= -3 ? 2 : 0) +
+    (smc.marketStructure === 'downtrend' ? 2 : 0) +
+    (smc.lastBos === 'bearish' ? 2 : 0)
 
   const bullishScore =
     (technical.trend === 'bullish' ? 3 : 0) +
@@ -173,7 +207,12 @@ function buildVerdict(
     (orderBook.bidAskRatio > 1.1 ? 2 : 0) +
     (whaleData.accumulation === 'accumulating' ? 2 : 0) +
     (timeframe.dominantTrend === 'bullish' ? 3 : timeframe.dominantTrend === 'bearish' ? -1 : 0) +
-    (timeframe.alignment === 'aligned' && timeframe.dominantTrend === 'bullish' ? 3 : 0)
+    (timeframe.alignment === 'aligned' && timeframe.dominantTrend === 'bullish' ? 3 : 0) +
+    (elliottWave.trend === 'impulse' && elliottWave.currentWave <= 3 ? 3 : 0) +
+    (elliottWave.currentWave <= -2 ? -2 : 0) +
+    (smc.marketStructure === 'uptrend' ? 2 : 0) +
+    (smc.lastBos === 'bullish' ? 2 : 0) +
+    (smc.structureShift ? 3 : 0)
 
   const netScore = bullishScore - bearishScore
 
@@ -247,7 +286,9 @@ export function analyze(sources: RawSourceData[], asset: Asset = 'eth'): Analysi
   const whaleData = parseWhaleData(sources)
   const macro = parseMacroData(sources)
   const timeframe = parseTimeframeData(sources)
-  const verdict = buildVerdict(priceData.price, technical, onChain, sentiment, orderBook, whaleData, timeframe)
+  const elliottWave = parseElliottWaveData(sources)
+  const smc = parseSmcData(sources)
+  const verdict = buildVerdict(priceData.price, technical, onChain, sentiment, orderBook, whaleData, timeframe, elliottWave, smc)
 
   const sourceInfoList: SourceInfo[] = sources.map((s) => ({
     name: s.name,
@@ -268,6 +309,8 @@ export function analyze(sources: RawSourceData[], asset: Asset = 'eth'): Analysi
     whaleData,
     macro,
     timeframe,
+    elliottWave,
+    smc,
     verdict,
     sources: sourceInfoList,
     scenarios: {

@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio'
-import type { Asset, AssetConfig } from './types'
+import type { Asset, AssetConfig, SmcOrderBlock, SmcFvg } from './types'
 import { getAssetConfig } from './types'
 
 interface RawSourceData {
@@ -378,6 +378,291 @@ async function scrapeMacroEvents(): Promise<RawSourceData> {
   }
 }
 
+function findSmcPatterns(closes: number[], highs: number[], lows: number[], volumes: number[]): {
+  marketStructure: 'uptrend' | 'downtrend' | 'ranging'
+  structureShift: boolean
+  lastBos: 'bullish' | 'bearish' | null
+  orderBlocks: { type: 'bullish' | 'bearish'; price: number; strength: 'strong' | 'moderate' | 'weak'; touched: boolean }[]
+  fvgs: { type: 'bullish' | 'bearish'; upper: number; lower: number; filled: boolean }[]
+  liquidityAbove: number
+  liquidityBelow: number
+  description: string
+} {
+  const n = closes.length
+  const defaultResult = {
+    marketStructure: 'ranging' as const,
+    structureShift: false,
+    lastBos: null as 'bullish' | 'bearish' | null,
+    orderBlocks: [],
+    fvgs: [],
+    liquidityAbove: 0,
+    liquidityBelow: 0,
+    description: 'Datos insuficientes para análisis SMC',
+  }
+  if (n < 20) return defaultResult
+
+  // Find swing points
+  const pivots: { index: number; price: number; type: 'high' | 'low' }[] = []
+  const lookback = 2
+  for (let i = lookback; i < n - lookback; i++) {
+    const isHigh = highs[i] === Math.max(...highs.slice(i - lookback, i + lookback + 1))
+    const isLow = lows[i] === Math.min(...lows.slice(i - lookback, i + lookback + 1))
+    if (isHigh) pivots.push({ index: i, price: highs[i], type: 'high' })
+    if (isLow) pivots.push({ index: i, price: lows[i], type: 'low' })
+  }
+
+  // Alternate filter
+  const filtered: typeof pivots = []
+  for (const p of pivots) {
+    const last = filtered[filtered.length - 1]
+    if (!last || last.type !== p.type) {
+      if (!last || Math.abs(p.price - last.price) / last.price > 0.003) {
+        filtered.push(p)
+      }
+    }
+  }
+
+  const lastPrice = closes[n - 1]
+  const orderBlocks: SmcOrderBlock[] = []
+  const fvgs: SmcFvg[] = []
+
+  // Detect order blocks from swing pivots with volume confirmation
+  for (let i = 1; i < filtered.length; i++) {
+    const prev = filtered[i - 1]
+    const curr = filtered[i]
+    if (prev.type === 'low' && curr.type === 'high') {
+      // Bullish order block: the last bearish candle before the upswing
+      const obPrice = prev.price
+      const volRatio = volumes[prev.index] / (volumes.slice(0, prev.index).reduce((a, b) => a + b, 0) / Math.max(prev.index, 1))
+      const strength: 'strong' | 'moderate' | 'weak' = volRatio > 1.5 ? 'strong' : volRatio > 1 ? 'moderate' : 'weak'
+      orderBlocks.push({ type: 'bullish', price: obPrice, strength, touched: lastPrice <= obPrice * 1.02 })
+    } else if (prev.type === 'high' && curr.type === 'low') {
+      const obPrice = prev.price
+      const volRatio = volumes[prev.index] / (volumes.slice(0, prev.index).reduce((a, b) => a + b, 0) / Math.max(prev.index, 1))
+      const strength: 'strong' | 'moderate' | 'weak' = volRatio > 1.5 ? 'strong' : volRatio > 1 ? 'moderate' : 'weak'
+      orderBlocks.push({ type: 'bearish', price: obPrice, strength, touched: lastPrice >= obPrice * 0.98 })
+    }
+  }
+
+  // Detect Fair Value Gaps (imbalances between consecutive candles)
+  for (let i = 1; i < n - 1; i++) {
+    const prevHigh = highs[i - 1]
+    const prevLow = lows[i - 1]
+    const currHigh = highs[i]
+    const currLow = lows[i]
+    // Bullish FVG: current low > previous high
+    if (currLow > prevHigh && (currLow - prevHigh) / prevHigh > 0.002) {
+      fvgs.push({ type: 'bullish', upper: currLow, lower: prevHigh, filled: lastPrice < prevHigh })
+    }
+    // Bearish FVG: current high < previous low
+    if (currHigh < prevLow && (prevLow - currHigh) / prevLow > 0.002) {
+      fvgs.push({ type: 'bearish', upper: prevLow, lower: currHigh, filled: lastPrice > prevLow })
+    }
+  }
+
+  // Determine market structure from pivot sequence
+  const recentPivots = filtered.slice(-6)
+  const higherHighs = recentPivots.filter((p, i) => p.type === 'high' && i > 0 && p.price > recentPivots[i - 1]?.price)
+  const lowerLows = recentPivots.filter((p, i) => p.type === 'low' && i > 0 && p.price < recentPivots[i - 1]?.price)
+
+  let marketStructure: 'uptrend' | 'downtrend' | 'ranging'
+  let structureShift = false
+  let lastBos: 'bullish' | 'bearish' | null = null
+  let description: string
+
+  if (higherHighs.length >= 2 && lowerLows.length < 2) {
+    marketStructure = 'uptrend'
+    lastBos = 'bullish'
+    // Check if last pivot broke previous high
+    const lastPivot = filtered[filtered.length - 1]
+    const prevHighPivot = [...filtered].reverse().find((p) => p.type === 'high' && p !== lastPivot)
+    if (lastPivot && prevHighPivot && lastPivot.type === 'high' && lastPivot.price > prevHighPivot.price) {
+      structureShift = true
+    }
+    description = 'Estructura alcista: máximos y mínimos crecientes. '
+    description += orderBlocks.filter((ob) => ob.type === 'bullish').length > 0
+      ? 'Zonas de orden alcistas identificadas cerca de los mínimos del movimiento.'
+      : 'Operar con sesgo alcista, buscar retrocesos a OB alcistas.'
+  } else if (lowerLows.length >= 2 && higherHighs.length < 2) {
+    marketStructure = 'downtrend'
+    lastBos = 'bearish'
+    const lastPivot = filtered[filtered.length - 1]
+    const prevLowPivot = [...filtered].reverse().find((p) => p.type === 'low' && p !== lastPivot)
+    if (lastPivot && prevLowPivot && lastPivot.type === 'low' && lastPivot.price < prevLowPivot.price) {
+      structureShift = true
+    }
+    description = 'Estructura bajista: máximos y mínimos decrecientes. '
+    description += orderBlocks.filter((ob) => ob.type === 'bearish').length > 0
+      ? 'Zonas de orden bajistas identificadas cerca de los techos del movimiento.'
+      : 'Evitar compras, buscar reacciones en OB bajistas.'
+  } else {
+    marketStructure = 'ranging'
+    description = 'Estructura lateral sin dirección clara. '
+    description += fvgs.length > 0
+      ? 'Operar los FVGs como soporte/resistencia intradía.'
+      : 'Esperar ruptura de estructura para tomar dirección.'
+  }
+
+  // Liquidity zones: swing highs/lows as targets
+  const allHighs = filtered.filter((p) => p.type === 'high').map((p) => p.price)
+  const allLows = filtered.filter((p) => p.type === 'low').map((p) => p.price)
+  const liquidityAbove = allHighs.length > 0 ? Math.max(...allHighs) : lastPrice * 1.05
+  const liquidityBelow = allLows.length > 0 ? Math.min(...allLows) : lastPrice * 0.95
+
+  return {
+    marketStructure, structureShift, lastBos,
+    orderBlocks: orderBlocks.slice(-4),
+    fvgs: fvgs.slice(-3),
+    liquidityAbove: Math.round(liquidityAbove),
+    liquidityBelow: Math.round(liquidityBelow),
+    description,
+  }
+}
+
+async function scrapeSmc(asset: AssetConfig): Promise<RawSourceData> {
+  const name = 'Smart Money Concepts'
+  const symbol = asset.id === 'btc' ? 'BTCUSDT' : asset.id === 'gold' ? 'XAUUSDT' : 'ETHUSDT'
+  const url = 'https://api.binance.com/api/v3/klines'
+  try {
+    const klines = await scrapeBinanceKlines(symbol, '1d')
+    const closes = klines.map((k) => k.close)
+    const highs = klines.map((k) => k.high)
+    const lows = klines.map((k) => k.low)
+    const volumes = klines.map((k) => k.volume)
+    const smc = findSmcPatterns(closes, highs, lows, volumes)
+    return { name, url, data: smc as unknown as Record<string, unknown> }
+  } catch (e) {
+    return { name, url, data: {}, error: String(e) }
+  }
+}
+
+function findElliottWaves(closes: number[], highs: number[], lows: number[]): {
+  waveCount: string; currentWave: number; trend: 'impulse' | 'corrective' | 'neutral'
+  completeness: number; nextTarget: number; invalidationLevel: number
+  subWaves: { label: string; high: number; low: number }[]
+  description: string
+} {
+  const n = closes.length
+  if (n < 30) return {
+    waveCount: 'Insufficient data', currentWave: 0, trend: 'neutral',
+    completeness: 0, nextTarget: 0, invalidationLevel: 0, subWaves: [],
+    description: 'Se necesitan más datos para el análisis de ondas Elliott',
+  }
+
+  // Find swing highs and lows using zigzag
+  const pivots: { index: number; price: number; type: 'high' | 'low' }[] = []
+  const lookback = 3
+  for (let i = lookback; i < n - lookback; i++) {
+    const isHigh = highs[i] === Math.max(...highs.slice(i - lookback, i + lookback + 1))
+    const isLow = lows[i] === Math.min(...lows.slice(i - lookback, i + lookback + 1))
+    if (isHigh) pivots.push({ index: i, price: highs[i], type: 'high' })
+    if (isLow) pivots.push({ index: i, price: lows[i], type: 'low' })
+  }
+
+  // Deduplicate: keep only alternating high/low
+  const filtered: typeof pivots = []
+  for (const p of pivots) {
+    const last = filtered[filtered.length - 1]
+    if (!last || last.type !== p.type) {
+      if (!last || Math.abs(p.price - last.price) / last.price > 0.005) {
+        filtered.push(p)
+      } else if (p.type === 'high' && p.price > last.price) {
+        filtered[filtered.length - 1] = p
+      } else if (p.type === 'low' && p.price < last.price) {
+        filtered[filtered.length - 1] = p
+      }
+    }
+  }
+
+  const lastPrice = closes[n - 1]
+  const firstPrice = closes[0]
+  const totalMove = ((lastPrice - firstPrice) / firstPrice) * 100
+
+  // Simplified wave detection based on pivot count and price action
+  const waveCount = filtered.length
+  const lastPivot = filtered[filtered.length - 1]
+  const prevPivot = filtered[filtered.length - 2]
+
+  let currentWave: number
+  let trend: 'impulse' | 'corrective' | 'neutral'
+  let waveLabel: string
+  let nextTarget: number
+  let invalidationLevel: number
+  let completeness: number
+  let description: string
+  let subWaves: { label: string; high: number; low: number }[]
+
+  // Build sub-waves from pivots
+  subWaves = filtered.slice(-8).map((p, i) => ({
+    label: `P${i + 1} ${p.type === 'high' ? '▲' : '▼'}`,
+    high: p.price,
+    low: p.price,
+  }))
+
+  if (totalMove > 5 && waveCount <= 6) {
+    // Likely in an impulse wave
+    trend = 'impulse'
+    currentWave = Math.min(waveCount + 1, 5)
+    waveLabel = `Onda ${currentWave} de (5)`
+    const avgWave = totalMove / Math.max(waveCount, 1)
+    nextTarget = lastPrice * (1 + avgWave / 100 * 0.5)
+    invalidationLevel = lastPivot?.type === 'high'
+      ? (prevPivot?.price ?? lastPrice * 0.92)
+      : lastPrice * 0.92
+    completeness = Math.round((waveCount / 5) * 100)
+    description = currentWave <= 3
+      ? `Onda alcista impulsiva en desarrollo. La onda ${currentWave} está activa con objetivo en $${Math.round(nextTarget).toLocaleString()}.`
+      : currentWave <= 5
+        ? `Aproximándose al final del impulso alcista (onda ${currentWave} de 5). Zona de toma de ganancias.`
+        : 'Estructura impulsiva completa. Esperar corrección A-B-C.'
+  } else if (totalMove < -3 && waveCount <= 6) {
+    trend = 'impulse'
+    currentWave = Math.min(waveCount + 1, 5)
+    waveLabel = `Onda ${currentWave} de (5) ▼`
+    const avgWave = Math.abs(totalMove) / Math.max(waveCount, 1)
+    nextTarget = lastPrice * (1 - avgWave / 100 * 0.5)
+    invalidationLevel = lastPivot?.type === 'low'
+      ? (prevPivot?.price ?? lastPrice * 1.08)
+      : lastPrice * 1.08
+    completeness = Math.round((waveCount / 5) * 100)
+    description = `Movimiento impulsivo bajista activo. Onda ${currentWave} con objetivo en $${Math.round(nextTarget).toLocaleString()}.`
+  } else {
+    // Corrective or neutral
+    trend = 'corrective'
+    currentWave = -(waveCount % 3 || 3)
+    const abcWave = Math.abs(currentWave)
+    waveLabel = abcWave === 1 ? 'Onda A de (ABC)' : abcWave === 2 ? 'Onda B de (ABC)' : 'Onda C de (ABC)'
+    nextTarget = totalMove > 0
+      ? lastPrice * (1 + Math.abs(totalMove) / 100 * 0.3)
+      : lastPrice * (1 - Math.abs(totalMove) / 100 * 0.3)
+    invalidationLevel = lastPrice * (totalMove > 0 ? 0.95 : 1.05)
+    completeness = Math.round(((waveCount % 3) / 3) * 100)
+    description = `Estructura correctiva A-B-C en desarrollo. ${abcWave === 1 ? 'Onda A corrigiendo el movimiento previo.' : abcWave === 2 ? 'Onda B — rebote temporal dentro de la corrección.' : 'Onda C — etapa final de la corrección.'}`
+  }
+
+  return {
+    waveCount: waveLabel, currentWave, trend, completeness,
+    nextTarget: Math.round(nextTarget), invalidationLevel: Math.round(invalidationLevel),
+    subWaves: subWaves.slice(-5), description,
+  }
+}
+
+async function scrapeElliottWave(asset: AssetConfig): Promise<RawSourceData> {
+  const name = 'Elliott Wave'
+  const symbol = asset.id === 'btc' ? 'BTCUSDT' : asset.id === 'gold' ? 'XAUUSDT' : 'ETHUSDT'
+  const url = 'https://api.binance.com/api/v3/klines'
+  try {
+    const klines = await scrapeBinanceKlines(symbol, '1d')
+    const closes = klines.map((k) => k.close)
+    const highs = klines.map((k) => k.high)
+    const lows = klines.map((k) => k.low)
+    const wave = findElliottWaves(closes, highs, lows)
+    return { name, url, data: wave as unknown as Record<string, unknown> }
+  } catch (e) {
+    return { name, url, data: {}, error: String(e) }
+  }
+}
+
 export async function scrapeAllSources(asset: Asset = 'eth'): Promise<RawSourceData[]> {
   const config = getAssetConfig(asset)
   const isCrypto = asset !== 'gold'
@@ -408,6 +693,9 @@ export async function scrapeAllSources(asset: Asset = 'eth'): Promise<RawSourceD
       scrapeMultiTimeframe(config),
     )
   }
+
+  scrapers.push(scrapeElliottWave(config))
+  scrapers.push(scrapeSmc(config))
 
   const results = await Promise.allSettled(scrapers)
   return results.map((r) =>

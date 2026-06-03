@@ -102,6 +102,42 @@ export function getAssetConfig(id: Asset): AssetConfig {
   return ASSETS.find((a) => a.id === id) ?? ASSETS[0]
 }
 
+export interface SmcOrderBlock {
+  type: 'bullish' | 'bearish'
+  price: number
+  strength: 'strong' | 'moderate' | 'weak'
+  touched: boolean
+}
+
+export interface SmcFvg {
+  type: 'bullish' | 'bearish'
+  upper: number
+  lower: number
+  filled: boolean
+}
+
+export interface SmcData {
+  marketStructure: 'uptrend' | 'downtrend' | 'ranging'
+  structureShift: boolean
+  lastBos: 'bullish' | 'bearish' | null
+  orderBlocks: SmcOrderBlock[]
+  fvgs: SmcFvg[]
+  liquidityAbove: number
+  liquidityBelow: number
+  description: string
+}
+
+export interface ElliottWaveData {
+  waveCount: string       // e.g. "Wave 3 of (5)"
+  trend: 'impulse' | 'corrective' | 'neutral'
+  currentWave: number     // 1-5 for impulse, or -1/-2/-3 for A-B-C
+  completeness: number    // 0-100 how complete the current pattern is
+  nextTarget: number
+  invalidationLevel: number
+  subWaves: { label: string; high: number; low: number }[]
+  description: string
+}
+
 export interface AnalysisResult {
   asset: Asset
   timestamp: string
@@ -114,6 +150,8 @@ export interface AnalysisResult {
   whaleData: WhaleData
   macro: MacroData
   timeframe: TimeframeData
+  elliottWave: ElliottWaveData
+  smc: SmcData
   verdict: {
     shortTerm: 'buy' | 'sell' | 'hold'
     longTerm: 'buy' | 'sell' | 'hold'
