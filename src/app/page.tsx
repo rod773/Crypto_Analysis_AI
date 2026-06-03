@@ -64,17 +64,22 @@ export default function Home() {
     setInput('')
     setLoading(true)
 
-    const vercelApi = process.env.NEXT_PUBLIC_VERCEL_URL
-      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api/analyze?ai=false&asset=${asset}`
-      : `https://crypto-analysis-ai-nine.vercel.app/api/analyze?ai=false&asset=${asset}`
-    const apiUrls = [`/api/analyze?ai=false&asset=${asset}`, vercelApi]
-
     let data: AnalysisResult | null = null
-    for (const url of apiUrls) {
+
+    // Try Vercel API first (works in web mode)
+    try {
+      const res = await fetch(`/api/analyze?ai=false&asset=${asset}`)
+      if (res.ok) data = await res.json()
+    } catch { /* fall through to client-side */ }
+
+    // Fallback: client-side analysis with free APIs
+    if (!data) {
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
-        if (res.ok) { data = await res.json(); break }
-      } catch { continue }
+        const { analyzeClientSide } = await import('@/lib/client-analysis')
+        data = await analyzeClientSide(asset)
+      } catch (err) {
+        console.error('Client analysis failed:', err)
+      }
     }
 
     if (data) {
