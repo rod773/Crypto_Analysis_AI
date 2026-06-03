@@ -95,7 +95,7 @@ export interface AssetConfig {
 export const ASSETS: AssetConfig[] = [
   { id: 'eth', name: 'Ethereum', symbol: 'ETH', coinGeckoId: 'ethereum', binanceSymbol: 'ETHUSDT', cmcSlug: 'ethereum', icon: '⟠' },
   { id: 'btc', name: 'Bitcoin', symbol: 'BTC', coinGeckoId: 'bitcoin', binanceSymbol: 'BTCUSDT', cmcSlug: 'bitcoin', icon: '₿' },
-  { id: 'gold', name: 'Gold', symbol: 'XAU', coinGeckoId: '', binanceSymbol: '', cmcSlug: '', icon: '👑' },
+  { id: 'gold', name: 'Gold', symbol: 'XAU', coinGeckoId: 'tether-gold', binanceSymbol: 'XAUUSDT', cmcSlug: 'gold', icon: '👑' },
 ]
 
 export function getAssetConfig(id: Asset): AssetConfig {

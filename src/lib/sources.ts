@@ -62,27 +62,6 @@ async function scrapeCoinMarketCap(asset: AssetConfig): Promise<RawSourceData> {
   }
 }
 
-async function scrapeGoldPrice(): Promise<RawSourceData> {
-  const name = 'CoinGecko'
-  const url = 'https://api.metals.live/v1/spot/gold'
-  try {
-    const res = await fetchWithTimeout(url)
-    const json = await res.json() as Record<string, unknown>[]
-    const usd = json.find((r: Record<string, unknown>) => r.currency === 'USD')
-    return {
-      name, url,
-      data: {
-        usd: usd?.price ?? 2300,
-        usd_24h_change: 0,
-        usd_24h_vol: 0,
-        usd_market_cap: 0,
-      },
-    }
-  } catch (e) {
-    return { name, url, data: {}, error: String(e) }
-  }
-}
-
 async function scrapeDefiLlama(): Promise<RawSourceData> {
   const name = 'DeFi Llama'
   const url = 'https://api.llama.fi/protocol/ethereum'
@@ -666,7 +645,7 @@ export async function scrapeAllSources(asset: Asset = 'eth'): Promise<RawSourceD
   const isCrypto = asset !== 'gold'
 
   const scrapers: Promise<RawSourceData>[] = [
-    asset === 'gold' ? scrapeGoldPrice() : scrapeCoinGecko(config),
+    scrapeCoinGecko(config),
     scrapeMacroEvents(),
   ]
 
