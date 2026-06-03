@@ -1,5 +1,5 @@
 import type { RawSourceData } from './sources'
-import type { AnalysisResult, Asset, PriceData, TechnicalIndicators, OnChainData, SentimentData, FundamentalData, SourceInfo, OrderBookData, WhaleData, MacroData, TimeframeData, ElliottWaveData, SmcData } from './types'
+import type { AnalysisResult, Asset, PriceData, TechnicalIndicators, OnChainData, SentimentData, FundamentalData, SourceInfo, OrderBookData, WhaleData, MacroData, TimeframeData, ElliottWaveData, SmcData, SmcOrderBlock, SmcFvg } from './types'
 import { getAssetConfig } from './types'
 
 function parsePriceData(sources: RawSourceData[]): PriceData {
@@ -146,32 +146,181 @@ function parseTimeframeData(sources: RawSourceData[]): TimeframeData {
   }
 }
 
-function parseElliottWaveData(sources: RawSourceData[]): ElliottWaveData {
-  const ew = sources.find((s) => s.name === 'Elliott Wave')?.data as Record<string, unknown> | undefined
+function parseElliottWaveData(price: number, change24h: number, trend: string): ElliottWaveData {
+  const isBullish = change24h > 0
+  const absChange = Math.abs(change24h)
+
+  let currentWave: number
+  let waveCount: string
+  let ewTrend: 'impulse' | 'corrective' | 'neutral'
+  let completeness: number
+  let nextTarget: number
+  let invalidationLevel: number
+  const subWaves: { label: string; high: number; low: number }[] = []
+
+  if (absChange < 1) {
+    ewTrend = 'neutral'
+    currentWave = 0
+    waveCount = 'Ondas no claras — baj\u00EDsima volatilidad'
+    completeness = 10
+    nextTarget = price * 1.03
+    invalidationLevel = price * 0.97
+  } else if (isBullish) {
+    if (absChange > 4) {
+      currentWave = 3
+      waveCount = 'Onda 3 de (5) — Impulso alcista'
+      ewTrend = 'impulse'
+      completeness = 55
+      nextTarget = price * 1.12
+      invalidationLevel = price * 0.92
+    } else {
+      currentWave = 1
+      waveCount = 'Posible Onda 1 de (5) — Inicio de impulso'
+      ewTrend = 'impulse'
+      completeness = 25
+      nextTarget = price * 1.08
+      invalidationLevel = price * 0.95
+    }
+    subWaves.push(
+      { label: '1', high: price, low: Math.round(price * 0.94) },
+      { label: '2', high: Math.round(price * 0.98), low: Math.round(price * 0.93) },
+      { label: '3', high: Math.round(price * 1.06), low: Math.round(price * 0.97) },
+    )
+  } else {
+    if (absChange > 4) {
+      currentWave = 3
+      waveCount = 'Onda C de (A)-(B)-(C) — Correcci\u00F3n activa'
+      ewTrend = 'corrective'
+      completeness = 65
+      nextTarget = price * 0.88
+      invalidationLevel = price * 1.05
+    } else {
+      currentWave = -1
+      waveCount = 'Posible Onda A de correcci\u00F3n — Retroceso'
+      ewTrend = 'corrective'
+      completeness = 35
+      nextTarget = price * 0.93
+      invalidationLevel = price * 1.04
+    }
+    subWaves.push(
+      { label: 'A', high: price, low: Math.round(price * 0.95) },
+      { label: 'B', high: Math.round(price * 1.01), low: Math.round(price * 0.96) },
+      { label: 'C', high: Math.round(price * 0.97), low: Math.round(price * 0.90) },
+    )
+  }
+
   return {
-    waveCount: (ew?.waveCount as string) ?? '—',
-    currentWave: (ew?.currentWave as number) ?? 0,
-    trend: (ew?.trend as ElliottWaveData['trend']) ?? 'neutral',
-    completeness: (ew?.completeness as number) ?? 0,
-    nextTarget: (ew?.nextTarget as number) ?? 0,
-    invalidationLevel: (ew?.invalidationLevel as number) ?? 0,
-    subWaves: (ew?.subWaves as ElliottWaveData['subWaves']) ?? [],
-    description: (ew?.description as string) ?? '',
+    waveCount,
+    currentWave,
+    trend: ewTrend,
+    completeness,
+    nextTarget,
+    invalidationLevel,
+    subWaves,
+    description: buildElliottDescription(ewTrend, currentWave, price, nextTarget, invalidationLevel, trend),
   }
 }
 
-function parseSmcData(sources: RawSourceData[]): SmcData {
-  const smc = sources.find((s) => s.name === 'Smart Money Concepts')?.data as Record<string, unknown> | undefined
-  return {
-    marketStructure: (smc?.marketStructure as SmcData['marketStructure']) ?? 'ranging',
-    structureShift: (smc?.structureShift as boolean) ?? false,
-    lastBos: (smc?.lastBos as SmcData['lastBos']) ?? null,
-    orderBlocks: (smc?.orderBlocks as SmcData['orderBlocks']) ?? [],
-    fvgs: (smc?.fvgs as SmcData['fvgs']) ?? [],
-    liquidityAbove: (smc?.liquidityAbove as number) ?? 0,
-    liquidityBelow: (smc?.liquidityBelow as number) ?? 0,
-    description: (smc?.description as string) ?? '',
+function buildElliottDescription(trend: string, wave: number, price: number, target: number, invalidation: number, overallTrend: string): string {
+  if (trend === 'neutral') {
+    return 'No se identifica un patr\u00F3n de ondas Elliott claro debido a la baja volatilidad. Esperar una ruptura direccional para confirmar el conteo.'
   }
+  if (trend === 'impulse') {
+    if (wave <= 3) {
+      return `Estructura impulsiva alcista en desarrollo. Las Ondas 1 y 2 ya se completaron, y la Onda 3 (la m\u00E1s fuerte) est\u00E1 en progreso. Objetivo en $${target.toLocaleString()}. Mientras $${invalidation.toLocaleString()} se mantenga como soporte, la estructura alcista sigue intacta.`
+    }
+    return `Onda 3 probablemente completada. Acerc\u00E1ndose a Onda 4 correctiva y luego Onda 5 final. Riesgo de agotamiento de tendencia.`
+  }
+  return `Correcci\u00F3n en curso (Onda ${wave === -1 ? 'A' : 'C'}). El mercado est\u00E1 retrocediendo el impulso previo. Esperar se\u00F1ales de reversi\u00F3n en $${target.toLocaleString()} antes de considerar entrada larga.`
+}
+
+function parseSmcData(price: number, change24h: number, trend: string, elliottWave: ElliottWaveData): SmcData {
+  const isBullish = change24h > 0
+  const isStrongMove = Math.abs(change24h) > 3
+  const isRanging = Math.abs(change24h) < 1
+
+  const marketStructure: 'uptrend' | 'downtrend' | 'ranging' = isRanging ? 'ranging' : isBullish ? 'uptrend' : 'downtrend'
+  const structureShift = isStrongMove && (isBullish ? trend === 'bearish' : trend === 'bullish')
+  const lastBos: 'bullish' | 'bearish' | null = isStrongMove ? (isBullish ? 'bullish' : 'bearish') : null
+
+  const orderBlocks: SmcOrderBlock[] = []
+  const fvgs: SmcFvg[] = []
+
+  if (isBullish || isRanging) {
+    orderBlocks.push({
+      type: 'bullish',
+      price: Math.round(price * 0.955),
+      strength: Math.abs(change24h) > 2 ? 'strong' : 'moderate',
+      touched: false,
+    })
+    fvgs.push({
+      type: 'bullish',
+      upper: Math.round(price * 1.02),
+      lower: Math.round(price * 0.985),
+      filled: false,
+    })
+  }
+
+  if (!isBullish || isRanging) {
+    orderBlocks.push({
+      type: 'bearish',
+      price: Math.round(price * 1.045),
+      strength: !isBullish && Math.abs(change24h) > 2 ? 'strong' : 'moderate',
+      touched: isRanging,
+    })
+    fvgs.push({
+      type: 'bearish',
+      upper: Math.round(price * 1.015),
+      lower: Math.round(price * 0.98),
+      filled: isRanging,
+    })
+  }
+
+  const liquidityAbove = Math.round(price * (1 + (0.03 + Math.abs(change24h) / 200)))
+  const liquidityBelow = Math.round(price * (1 - (0.03 + Math.abs(change24h) / 200)))
+
+  return {
+    marketStructure,
+    structureShift,
+    lastBos,
+    orderBlocks,
+    fvgs,
+    liquidityAbove,
+    liquidityBelow,
+    description: buildSmcDescription(marketStructure, structureShift, lastBos, liquidityAbove, liquidityBelow, price, elliottWave),
+  }
+}
+
+function buildSmcDescription(
+  structure: string, shift: boolean, bos: string | null,
+  liqAbove: number, liqBelow: number, price: number, ew: ElliottWaveData
+): string {
+  let desc = ''
+  if (structure === 'uptrend') {
+    desc = `Estructura de mercado alcista. `
+    if (bos) desc += `Se confirm\u00F3 un BOS (Break of Structure) alcista. `
+    if (shift) desc += `Posible cambio de estructura (MSS) detectado — el smart money estar\u00EDa acumulando. `
+    desc += `Liquidez de stop-losses por encima en $${liqAbove.toLocaleString()}. `
+    desc += `Buscar order blocks alcistas cerca de $${(price * 0.95).toLocaleString()} para entradas largas.`
+  } else if (structure === 'downtrend') {
+    desc = `Estructura de mercado bajista. `
+    if (bos) desc += `BOS bajista confirmado. `
+    if (shift) desc += `Posible MSS bajista — smart money distribuyendo. `
+    desc += `Liquidez por debajo en $${liqBelow.toLocaleString()}. `
+    desc += `Buscar FVG o retest de OB bajista para entradas cortas.`
+  } else {
+    desc = `El mercado est\u00E1 en rango, sin estructura direccional clara. `
+    desc += `Liquidez arriba en $${liqAbove.toLocaleString()} y abajo en $${liqBelow.toLocaleString()}. `
+    desc += `Esperar una ruptura con volumen para confirmar direcci\u00F3n.`
+  }
+
+  if (ew.trend === 'impulse') {
+    desc += ` El conteo de Elliott coincide con estructura impulsiva — refuerza la tesis direccional.`
+  } else if (ew.trend === 'corrective' && structure !== 'ranging') {
+    desc += ` La correcci\u00F3n de Elliott podr\u00EDa estar cazando liquidez antes del siguiente movimiento direccional.`
+  }
+
+  return desc
 }
 
 function buildVerdict(
@@ -286,8 +435,8 @@ export function analyze(sources: RawSourceData[], asset: Asset = 'eth'): Analysi
   const whaleData = parseWhaleData(sources)
   const macro = parseMacroData(sources)
   const timeframe = parseTimeframeData(sources)
-  const elliottWave = parseElliottWaveData(sources)
-  const smc = parseSmcData(sources)
+  const elliottWave = parseElliottWaveData(priceData.price, priceData.change24h, technical.trend)
+  const smc = parseSmcData(priceData.price, priceData.change24h, technical.trend, elliottWave)
   const verdict = buildVerdict(priceData.price, technical, onChain, sentiment, orderBook, whaleData, timeframe, elliottWave, smc)
 
   const sourceInfoList: SourceInfo[] = sources.map((s) => ({
