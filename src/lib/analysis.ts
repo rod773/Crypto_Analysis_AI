@@ -2,17 +2,27 @@ import type { RawSourceData } from './sources'
 import type { AnalysisResult, Asset, PriceData, TechnicalIndicators, OnChainData, SentimentData, FundamentalData, SourceInfo, OrderBookData, WhaleData, MacroData, TimeframeData, ElliottWaveData, SmcData, SmcOrderBlock, SmcFvg } from './types'
 import { getAssetConfig } from './types'
 
-function parsePriceData(sources: RawSourceData[]): PriceData {
-  const coingecko = sources.find((s) => s.name === 'CoinGecko')?.data as Record<string, Record<string, number>> | undefined
-  const eth = coingecko?.ethereum
-  const price = eth?.usd ?? 1850
+function parsePriceData(sources: RawSourceData[], asset: Asset): PriceData {
+  const config = getAssetConfig(asset)
+  const coingecko = sources.find((s) => s.name === 'CoinGecko')?.data
+  if (!coingecko) {
+    const price = 1850
+    return { price, change24h: 0, high24h: price * 1.04, low24h: price * 0.96, volume24h: 15_000_000_000, marketCap: 220_000_000_000 }
+  }
+  let coinData: Record<string, number> | undefined
+  if (asset === 'gold') {
+    coinData = coingecko as unknown as Record<string, number>
+  } else {
+    coinData = (coingecko as Record<string, Record<string, number>>)?.[config.coinGeckoId]
+  }
+  const price = coinData?.usd ?? 1850
   return {
     price,
-    change24h: eth?.usd_24h_change ?? 0,
+    change24h: coinData?.usd_24h_change ?? 0,
     high24h: price * 1.04,
     low24h: price * 0.96,
-    volume24h: eth?.usd_24h_vol ?? 15_000_000_000,
-    marketCap: eth?.usd_market_cap ?? 220_000_000_000,
+    volume24h: coinData?.usd_24h_vol ?? (asset === 'gold' ? 0 : 15_000_000_000),
+    marketCap: coinData?.usd_market_cap ?? (asset === 'gold' ? 0 : 220_000_000_000),
   }
 }
 
@@ -426,7 +436,7 @@ function buildVerdict(
 }
 
 export function analyze(sources: RawSourceData[], asset: Asset = 'eth'): AnalysisResult {
-  const priceData = parsePriceData(sources)
+  const priceData = parsePriceData(sources, asset)
   const technical = parseTechnicalIndicators(priceData.price, priceData.change24h)
   const onChain = parseOnChainData(sources, priceData.price)
   const sentiment = parseSentimentData(sources)

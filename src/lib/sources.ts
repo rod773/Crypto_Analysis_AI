@@ -63,7 +63,7 @@ async function scrapeCoinMarketCap(asset: AssetConfig): Promise<RawSourceData> {
 }
 
 async function scrapeGoldPrice(): Promise<RawSourceData> {
-  const name = 'Gold Price'
+  const name = 'CoinGecko'
   const url = 'https://api.metals.live/v1/spot/gold'
   try {
     const res = await fetchWithTimeout(url)
@@ -72,12 +72,10 @@ async function scrapeGoldPrice(): Promise<RawSourceData> {
     return {
       name, url,
       data: {
-        ethereum: {
-          usd: usd?.price ?? 2300,
-          usd_24h_change: 0,
-          usd_24h_vol: 0,
-          usd_market_cap: 0,
-        },
+        usd: usd?.price ?? 2300,
+        usd_24h_change: 0,
+        usd_24h_vol: 0,
+        usd_market_cap: 0,
       },
     }
   } catch (e) {

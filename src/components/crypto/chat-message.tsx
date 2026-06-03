@@ -236,7 +236,8 @@ function TechnicalIndicators({ tech }: { tech: AnalysisResult['technical'] }) {
   )
 }
 
-function OnChainSummary({ onChain }: { onChain: AnalysisResult['onChain'] }) {
+function OnChainSummary({ onChain, asset }: { onChain: AnalysisResult['onChain']; asset: Asset }) {
+  const symbol = asset === 'btc' ? 'BTC' : asset === 'gold' ? 'XAU' : 'ETH'
   return (
     <motion.div
       variants={containerVariants}
@@ -248,7 +249,7 @@ function OnChainSummary({ onChain }: { onChain: AnalysisResult['onChain'] }) {
         { label: 'Funding Rate', value: `${(onChain.fundingRate * 100).toFixed(4)}%`, color: onChain.fundingRate > 0.005 ? 'text-red-500' : 'text-green-500' },
         { label: 'Flujo Exchanges', value: onChain.exchangeNetFlow, color: onChain.exchangeNetFlow.includes('outflows') ? 'text-green-500' : 'text-red-500' },
         { label: 'Staking APY', value: `${onChain.stakingYield.toFixed(1)}%`, color: '' },
-        { label: 'ETH Staked', value: `${(onChain.totalStaked / 1e6).toFixed(1)}M`, color: '' },
+        { label: `${symbol} Staked`, value: `${(onChain.totalStaked / 1e6).toFixed(1)}M`, color: '' },
       ].map((item) => (
         <motion.div key={item.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
           <div className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
@@ -288,7 +289,8 @@ function SourcesList({ sources }: { sources: AnalysisResult['sources'] }) {
   )
 }
 
-function OrderBookSummary({ orderBook }: { orderBook: AnalysisResult['orderBook'] }) {
+function OrderBookSummary({ orderBook, asset }: { orderBook: AnalysisResult['orderBook']; asset: Asset }) {
+  const symbol = asset === 'btc' ? 'BTC' : asset === 'gold' ? 'XAU' : 'ETH'
   return (
     <motion.div
       variants={containerVariants}
@@ -297,8 +299,8 @@ function OrderBookSummary({ orderBook }: { orderBook: AnalysisResult['orderBook'
       className="grid grid-cols-2 gap-2"
     >
       {[
-        { label: 'Bid Depth', value: `${(orderBook.bidDepth / 1000).toFixed(0)}K ETH`, color: 'text-green-500' },
-        { label: 'Ask Depth', value: `${(orderBook.askDepth / 1000).toFixed(0)}K ETH`, color: 'text-red-500' },
+        { label: 'Bid Depth', value: `${(orderBook.bidDepth / 1000).toFixed(0)}K ${symbol}`, color: 'text-green-500' },
+        { label: 'Ask Depth', value: `${(orderBook.askDepth / 1000).toFixed(0)}K ${symbol}`, color: 'text-red-500' },
         { label: 'Bid/Ask Ratio', value: orderBook.bidAskRatio.toFixed(2), color: orderBook.bidAskRatio > 1 ? 'text-green-500' : 'text-red-500' },
         { label: 'Opción Flow', value: orderBook.optionFlowSentiment === 'bullish' ? 'Calls ▲' : orderBook.optionFlowSentiment === 'bearish' ? 'Puts ▼' : '—', color: orderBook.optionFlowSentiment === 'bullish' ? 'text-green-500' : orderBook.optionFlowSentiment === 'bearish' ? 'text-red-500' : '' },
       ].map((item) => (
@@ -668,11 +670,11 @@ export function ChatMessage({ role, content, analysis, loading }: ChatMessagePro
                             </div>
                             <div className="space-y-2">
                               <SectionHeader icon={<ActivityIcon className="h-3 w-3" />} label="On-Chain" />
-                              <OnChainSummary onChain={analysis.onChain} />
+                              <OnChainSummary onChain={analysis.onChain} asset={analysis.asset} />
                             </div>
                             <div className="space-y-2">
                               <SectionHeader icon={<BookOpenIcon className="h-3 w-3" />} label="Order Book" />
-                              <OrderBookSummary orderBook={analysis.orderBook} />
+                              <OrderBookSummary orderBook={analysis.orderBook} asset={analysis.asset} />
                             </div>
                             <div className="space-y-2">
                               <SectionHeader icon={<FishSymbolIcon className="h-3 w-3" />} label="Ballenas" />
