@@ -1,0 +1,27 @@
+<svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#82aaff"/>
+      <stop offset="50%" stop-color="#c792ea"/>
+      <stop offset="100%" stop-color="#22da6e"/>
+    </linearGradient>
+  </defs>
+  <path d="M50 5 L90 27.5 L90 72.5 L50 95 L10 72.5 L10 27.5 Z" stroke="url(#g)" stroke-width="4" fill="none"/>
+  <path d="M50 12 L84 31 L84 69 L50 88 L16 69 L16 31 Z" fill="#011627"/>
+  <rect x="25" y="55" width="5" height="18" rx="1" fill="#22da6e"/>
+  <line x1="27.5" y1="48" x2="27.5" y2="55" stroke="#22da6e" stroke-width="2" stroke-linecap="round"/>
+  <line x1="27.5" y1="73" x2="27.5" y2="80" stroke="#22da6e" stroke-width="2" stroke-linecap="round"/>
+  <rect x="36" y="40" width="5" height="22" rx="1" fill="#ef5350"/>
+  <line x1="38.5" y1="33" x2="38.5" y2="40" stroke="#ef5350" stroke-width="2" stroke-linecap="round"/>
+  <line x1="38.5" y1="62" x2="38.5" y2="68" stroke="#ef5350" stroke-width="2" stroke-linecap="round"/>
+  <rect x="47" y="48" width="5" height="26" rx="1" fill="#22da6e"/>
+  <line x1="49.5" y1="40" x2="49.5" y2="48" stroke="#22da6e" stroke-width="2" stroke-linecap="round"/>
+  <line x1="49.5" y1="74" x2="49.5" y2="82" stroke="#22da6e" stroke-width="2" stroke-linecap="round"/>
+  <rect x="58" y="35" width="5" height="20" rx="1" fill="#ef5350"/>
+  <line x1="60.5" y1="28" x2="60.5" y2="35" stroke="#ef5350" stroke-width="2" stroke-linecap="round"/>
+  <line x1="60.5" y1="55" x2="60.5" y2="62" stroke="#ef5350" stroke-width="2" stroke-linecap="round"/>
+  <rect x="69" y="28" width="5" height="34" rx="1" fill="#22da6e"/>
+  <line x1="71.5" y1="20" x2="71.5" y2="28" stroke="#22da6e" stroke-width="2" stroke-linecap="round"/>
+  <line x1="71.5" y1="62" x2="71.5" y2="70" stroke="#22da6e" stroke-width="2" stroke-linecap="round"/>
+  <text x="50" y="93" text-anchor="middle" fill="#82aaff" font-size="9" font-weight="bold" font-family="monospace">AI</text>
+</svg>

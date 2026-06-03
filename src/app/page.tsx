@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatMessage } from '@/components/crypto/chat-message'
-import { Brain, Zap, SendHorizonal, Sparkles, RotateCcw, Coins, Bitcoin, Globe } from 'lucide-react'
+import { Logo } from '@/components/ui/logo'
+import { Zap, SendHorizonal, Sparkles, RotateCcw, Coins, Bitcoin, Globe } from 'lucide-react'
 import type { AnalysisResult, Asset } from '@/lib/types'
 import { getAssetConfig, ASSETS } from '@/lib/types'
 import { useScrollReveal } from '@/hooks/useScrollAnimations'
@@ -139,9 +140,7 @@ export default function Home() {
       <header ref={headerRef} className="relative shrink-0 border-b border-border/40 bg-background/60 backdrop-blur-xl">
         <div className="flex items-center justify-between px-5 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyber/20 to-cyber/5 ring-1 ring-cyber/20">
-              <Brain className="h-5 w-5 text-cyber" />
-            </div>
+            <Logo size={36} />
             <div>
               <h1 className="text-lg font-bold tracking-tight">Crypto Analysis AI</h1>
               <p className="text-xs text-muted-foreground leading-tight">{`¿Comprar o vender ${assetConfig.symbol}?`}</p>
