@@ -1,15 +1,17 @@
 import { NextRequest } from 'next/server'
 import { scrapeAllSources } from '@/lib/sources'
 import { analyze } from '@/lib/analysis'
+import type { Asset } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function GET(request: NextRequest) {
   const useAI = request.nextUrl.searchParams.get('ai') === 'true'
+  const asset = (request.nextUrl.searchParams.get('asset') ?? 'eth') as Asset
   try {
-    const sources = await scrapeAllSources()
-    const analysis = analyze(sources)
+    const sources = await scrapeAllSources(asset)
+    const analysis = analyze(sources, asset)
     if (useAI) {
       try {
         const aiAnalysis = await generateAIAnalysis(analysis)

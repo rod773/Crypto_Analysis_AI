@@ -1,5 +1,6 @@
 import type { RawSourceData } from './sources'
-import type { AnalysisResult, PriceData, TechnicalIndicators, OnChainData, SentimentData, FundamentalData, SourceInfo } from './types'
+import type { AnalysisResult, Asset, PriceData, TechnicalIndicators, OnChainData, SentimentData, FundamentalData, SourceInfo, OrderBookData, WhaleData, MacroData, TimeframeData } from './types'
+import { getAssetConfig } from './types'
 
 function parsePriceData(sources: RawSourceData[]): PriceData {
   const coingecko = sources.find((s) => s.name === 'CoinGecko')?.data as Record<string, Record<string, number>> | undefined
@@ -99,23 +100,80 @@ function parseFundamentalData(): FundamentalData {
   }
 }
 
+function parseOrderBookData(sources: RawSourceData[]): OrderBookData {
+  const ob = sources.find((s) => s.name === 'Binance Order Book')?.data as Record<string, unknown> | undefined
+  const bidDepth = (ob?.bidDepth as number) ?? 0
+  const askDepth = (ob?.askDepth as number) ?? 0
+  const ratio = bidDepth / (askDepth || 1)
+  return {
+    bidDepth,
+    askDepth,
+    bidAskRatio: Math.round(ratio * 100) / 100,
+    optionFlow: ratio > 1.1 ? 'Calls dominating' : ratio < 0.9 ? 'Puts dominating' : 'Balanced',
+    optionFlowSentiment: ratio > 1.1 ? 'bullish' : ratio < 0.9 ? 'bearish' : 'neutral',
+    maxPain: 0,
+  }
+}
+
+function parseWhaleData(sources: RawSourceData[]): WhaleData {
+  const w = sources.find((s) => s.name === 'Whale Transactions')?.data as Record<string, unknown> | undefined
+  return {
+    largeTxns24h: (w?.largeTxns24h as number) ?? 0,
+    totalVolumeUsd: (w?.totalVolumeUsd as number) ?? 0,
+    accumulation: (w?.accumulation as WhaleData['accumulation']) ?? 'neutral',
+    topWhaleNetFlow: (w?.topWhaleNetFlow as string) ?? '—',
+    notableTxns: (w?.notableTxns as WhaleData['notableTxns']) ?? [],
+  }
+}
+
+function parseMacroData(sources: RawSourceData[]): MacroData {
+  const m = sources.find((s) => s.name === 'Macro Calendar')?.data as Record<string, unknown> | undefined
+  return {
+    upcomingEvents: (m?.upcomingEvents as MacroData['upcomingEvents']) ?? [],
+    marketContext: (m?.marketContext as string) ?? 'No data',
+    riskOn: (m?.riskOn as boolean) ?? true,
+  }
+}
+
+function parseTimeframeData(sources: RawSourceData[]): TimeframeData {
+  const tf = sources.find((s) => s.name === 'Multi-Timeframe')?.data as Record<string, unknown> | undefined
+  return {
+    daily: (tf?.daily as TimeframeData['daily']) ?? { trend: 'neutral', rsi: 50, maStatus: 'unknown' },
+    fourHour: (tf?.fourHour as TimeframeData['fourHour']) ?? { trend: 'neutral', rsi: 50, maStatus: 'unknown' },
+    oneHour: (tf?.oneHour as TimeframeData['oneHour']) ?? { trend: 'neutral', rsi: 50, maStatus: 'unknown' },
+    alignment: (tf?.alignment as TimeframeData['alignment']) ?? 'conflicting',
+    dominantTrend: (tf?.dominantTrend as TimeframeData['dominantTrend']) ?? 'neutral',
+  }
+}
+
 function buildVerdict(
   price: number,
   technical: TechnicalIndicators,
   onChain: OnChainData,
-  sentiment: SentimentData
+  sentiment: SentimentData,
+  orderBook: OrderBookData,
+  whaleData: WhaleData,
+  timeframe: TimeframeData,
 ): AnalysisResult['verdict'] {
   const bearishScore =
     (technical.trend === 'bearish' ? 3 : 0) +
     (technical.rsi > 70 ? 2 : technical.rsi < 30 ? -1 : 0) +
     (onChain.fundingRate > 0.005 ? 3 : 0) +
-    (sentiment.fearGreedIndex < 25 ? 2 : 0)
+    (sentiment.fearGreedIndex < 25 ? 2 : 0) +
+    (orderBook.bidAskRatio < 0.9 ? 2 : 0) +
+    (whaleData.accumulation === 'distributing' ? 2 : 0) +
+    (timeframe.dominantTrend === 'bearish' ? 3 : timeframe.dominantTrend === 'bullish' ? -1 : 0) +
+    (timeframe.alignment === 'aligned' && timeframe.dominantTrend === 'bearish' ? 3 : 0)
 
   const bullishScore =
     (technical.trend === 'bullish' ? 3 : 0) +
     (technical.rsi < 30 ? 2 : technical.rsi > 70 ? -1 : 0) +
     (onChain.fundingRate < 0.001 ? 2 : 0) +
-    (sentiment.fearGreedIndex > 70 ? 2 : 0)
+    (sentiment.fearGreedIndex > 70 ? 2 : 0) +
+    (orderBook.bidAskRatio > 1.1 ? 2 : 0) +
+    (whaleData.accumulation === 'accumulating' ? 2 : 0) +
+    (timeframe.dominantTrend === 'bullish' ? 3 : timeframe.dominantTrend === 'bearish' ? -1 : 0) +
+    (timeframe.alignment === 'aligned' && timeframe.dominantTrend === 'bullish' ? 3 : 0)
 
   const netScore = bullishScore - bearishScore
 
@@ -179,13 +237,17 @@ function buildVerdict(
   }
 }
 
-export function analyze(sources: RawSourceData[]): AnalysisResult {
+export function analyze(sources: RawSourceData[], asset: Asset = 'eth'): AnalysisResult {
   const priceData = parsePriceData(sources)
   const technical = parseTechnicalIndicators(priceData.price, priceData.change24h)
   const onChain = parseOnChainData(sources, priceData.price)
   const sentiment = parseSentimentData(sources)
   const fundamental = parseFundamentalData()
-  const verdict = buildVerdict(priceData.price, technical, onChain, sentiment)
+  const orderBook = parseOrderBookData(sources)
+  const whaleData = parseWhaleData(sources)
+  const macro = parseMacroData(sources)
+  const timeframe = parseTimeframeData(sources)
+  const verdict = buildVerdict(priceData.price, technical, onChain, sentiment, orderBook, whaleData, timeframe)
 
   const sourceInfoList: SourceInfo[] = sources.map((s) => ({
     name: s.name,
@@ -195,12 +257,17 @@ export function analyze(sources: RawSourceData[]): AnalysisResult {
   }))
 
   return {
+    asset,
     timestamp: new Date().toISOString(),
     priceData,
     technical,
     onChain,
     sentiment,
     fundamental,
+    orderBook,
+    whaleData,
+    macro,
+    timeframe,
     verdict,
     sources: sourceInfoList,
     scenarios: {

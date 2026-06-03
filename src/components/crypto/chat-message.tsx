@@ -1,11 +1,18 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { gsap } from 'gsap'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { ArrowUpIcon, ArrowDownIcon, MinusIcon, TrendingUpIcon, TrendingDownIcon, AlertTriangleIcon } from 'lucide-react'
-import type { AnalysisResult } from '@/lib/types'
+import {
+  ArrowUpIcon, ArrowDownIcon, MinusIcon, TrendingUpIcon, TrendingDownIcon,
+  AlertTriangleIcon, ChevronDownIcon, ActivityIcon, WalletIcon,
+  NewspaperIcon, BarChart3Icon, BookOpenIcon, FishSymbolIcon, GlobeIcon, LayersIcon,
+} from 'lucide-react'
+import type { AnalysisResult, Asset } from '@/lib/types'
 
 interface ChatMessageProps {
   role: 'user' | 'assistant'
@@ -14,16 +21,33 @@ interface ChatMessageProps {
   loading?: boolean
 }
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06 },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as const } },
+}
+
 function SentimentBadge({ label, value }: { label: string; value: number }) {
-  const color = value <= 25 ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-    value <= 45 ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
-      value <= 55 ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' :
-        value <= 75 ? 'bg-lime-500/10 text-lime-500 border-lime-500/20' :
-          'bg-green-500/10 text-green-500 border-green-500/20'
+  const color = value <= 25
+    ? 'bg-red-500/10 text-red-500 border-red-500/20'
+    : value <= 45
+    ? 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+    : value <= 55
+    ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+    : value <= 75
+    ? 'bg-lime-500/10 text-lime-500 border-lime-500/20'
+    : 'bg-green-500/10 text-green-500 border-green-500/20'
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-muted-foreground">{label}:</span>
-      <Badge variant="outline" className={`${color} font-mono`}>{value}</Badge>
+      <span className="text-xs text-muted-foreground">{label}:</span>
+      <Badge variant="outline" className={`${color} font-mono text-xs`}>{value}</Badge>
     </div>
   )
 }
@@ -31,156 +55,223 @@ function SentimentBadge({ label, value }: { label: string; value: number }) {
 function VerdictCard({ verdict }: { verdict: AnalysisResult['verdict'] }) {
   const isBuy = verdict.shortTerm === 'buy'
   const isSell = verdict.shortTerm === 'sell'
-  const verdictColor = isBuy ? 'border-green-500/50 bg-green-500/5' :
-    isSell ? 'border-red-500/50 bg-red-500/5' :
-      'border-yellow-500/50 bg-yellow-500/5'
-  const verdictIcon = isBuy ? <TrendingUpIcon className="h-5 w-5 text-green-500" /> :
-    isSell ? <TrendingDownIcon className="h-5 w-5 text-red-500" /> :
-      <MinusIcon className="h-5 w-5 text-yellow-500" />
+  const verdictColor = isBuy
+    ? 'border-green-500/30 bg-gradient-to-br from-green-500/8 to-green-500/3'
+    : isSell
+    ? 'border-red-500/30 bg-gradient-to-br from-red-500/8 to-red-500/3'
+    : 'border-yellow-500/30 bg-gradient-to-br from-yellow-500/8 to-yellow-500/3'
+  const verdictIcon = isBuy
+    ? <TrendingUpIcon className="h-5 w-5 text-green-500" />
+    : isSell
+    ? <TrendingDownIcon className="h-5 w-5 text-red-500" />
+    : <MinusIcon className="h-5 w-5 text-yellow-500" />
+  const shortLabel = verdict.shortTerm === 'hold' ? 'ESPERAR' : verdict.shortTerm === 'buy' ? 'COMPRAR' : 'VENDER'
+  const longLabel = verdict.longTerm === 'hold' ? 'ESPERAR' : verdict.longTerm === 'buy' ? 'COMPRAR' : 'VENDER'
 
   return (
-    <Card className={`p-4 border-2 ${verdictColor} mb-3`}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          {verdictIcon}
-          <span className="font-bold text-lg uppercase">{verdict.shortTerm === 'hold' ? 'ESPERAR' : verdict.shortTerm === 'buy' ? 'COMPRAR' : 'VENDER'}</span>
-          <Badge variant="secondary" className="text-xs">
-            Corto plazo
-          </Badge>
+    <motion.div
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+    >
+      <Card className={`overflow-hidden border-2 ${verdictColor} backdrop-blur-sm`}>
+        <div className="p-3.5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {verdictIcon}
+              <span className="font-bold text-base tracking-tight">{shortLabel}</span>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal bg-background/50">Corto</Badge>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="text-[10px]">Confianza</span>
+              <span className="font-semibold font-mono text-foreground">{verdict.confidence}%</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-base tracking-tight">{longLabel}</span>
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal bg-background/50">Largo</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{verdict.summary}</p>
         </div>
-        <span className="text-sm text-muted-foreground">Confianza: {verdict.confidence}%</span>
-      </div>
-      <div className="flex items-center gap-2 mb-2">
-        <span className="font-bold text-lg uppercase">{verdict.longTerm === 'hold' ? 'ESPERAR' : verdict.longTerm === 'buy' ? 'COMPRAR' : 'VENDER'}</span>
-        <Badge variant="secondary" className="text-xs">
-          Largo plazo
-        </Badge>
-      </div>
-      <p className="text-sm text-muted-foreground">{verdict.summary}</p>
-    </Card>
+      </Card>
+    </motion.div>
   )
 }
 
 function PriceDisplay({ price, change }: { price: number; change: number }) {
+  const priceRef = useRef<HTMLSpanElement>(null)
   const isPositive = change >= 0
+
+  useEffect(() => {
+    if (!priceRef.current) return
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        priceRef.current,
+        { textContent: '0' },
+        {
+          textContent: price,
+          duration: 1.2,
+          ease: 'power2.out',
+          snap: { textContent: 1 },
+        }
+      )
+    }, priceRef.current)
+    return () => ctx.revert()
+  }, [price])
+
   return (
-    <div className="flex items-baseline gap-3 mb-3">
-      <span className="text-3xl font-bold font-mono">
-        ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+      className="flex items-baseline gap-3"
+    >
+      <span className="text-3xl font-bold font-mono tracking-tight">
+        $<span ref={priceRef}>{price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
       </span>
-      <span className={`flex items-center gap-1 text-lg font-mono ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-        {isPositive ? <ArrowUpIcon className="h-4 w-4" /> : <ArrowDownIcon className="h-4 w-4" />}
+      <motion.span
+        initial={{ opacity: 0, x: -5 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3, delay: 0.2 }}
+        className={`flex items-center gap-1 text-base font-mono font-semibold ${isPositive ? 'text-green-500' : 'text-red-500'}`}
+      >
+        {isPositive ? <ArrowUpIcon className="h-3.5 w-3.5" /> : <ArrowDownIcon className="h-3.5 w-3.5" />}
         {change.toFixed(2)}%
-      </span>
-    </div>
+      </motion.span>
+    </motion.div>
   )
 }
 
 function KeyLevels({ verdict }: { verdict: AnalysisResult['verdict'] }) {
   return (
-    <div className="grid grid-cols-3 gap-2 mb-3">
-      <div className="bg-red-500/10 rounded-lg p-2 text-center">
-        <div className="text-xs text-muted-foreground">Stop Loss</div>
-        <div className="text-sm font-mono font-bold text-red-500">${verdict.keyLevels.stopLoss.toLocaleString()}</div>
-      </div>
-      <div className="bg-green-500/10 rounded-lg p-2 text-center">
-        <div className="text-xs text-muted-foreground">Take Profit (Corto)</div>
-        <div className="text-sm font-mono font-bold text-green-500">${verdict.keyLevels.takeProfitShort.toLocaleString()}</div>
-      </div>
-      <div className="bg-blue-500/10 rounded-lg p-2 text-center">
-        <div className="text-xs text-muted-foreground">Take Profit (Largo)</div>
-        <div className="text-sm font-mono font-bold text-blue-500">${verdict.keyLevels.takeProfitLong.toLocaleString()}</div>
-      </div>
-    </div>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="grid grid-cols-3 gap-2"
+    >
+      {[
+        { label: 'Stop Loss', value: verdict.keyLevels.stopLoss, color: 'red', border: 'border-red-500/15', bg: 'bg-red-500/5' },
+        { label: 'TP Corto', value: verdict.keyLevels.takeProfitShort, color: 'green', border: 'border-green-500/15', bg: 'bg-green-500/5' },
+        { label: 'TP Largo', value: verdict.keyLevels.takeProfitLong, color: 'blue', border: 'border-cyber/15', bg: 'bg-cyber/5' },
+      ].map((item) => (
+        <motion.div
+          key={item.label}
+          variants={itemVariants}
+          whileHover={{ scale: 1.04 }}
+          className={`${item.bg} ${item.border} rounded-xl border p-2.5 text-center transition-colors`}
+        >
+          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
+          <div className={`text-sm font-mono font-bold text-${item.color}-500`}>
+            ${item.value.toLocaleString()}
+          </div>
+        </motion.div>
+      ))}
+    </motion.div>
   )
 }
 
 function Scenarios({ scenarios }: { scenarios: AnalysisResult['scenarios'] }) {
   return (
-    <div className="space-y-2 mb-3">
-      <div className="flex items-start gap-2 bg-red-500/5 rounded-lg p-3">
-        <AlertTriangleIcon className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-        <div>
-          <div className="text-sm font-medium text-red-500">Escenario Bajista ({scenarios.bearish.probability}%)</div>
-          <div className="text-xs text-muted-foreground">Objetivo: ${scenarios.bearish.target.toLocaleString()}</div>
-          <div className="text-xs text-muted-foreground">Si: {scenarios.bearish.trigger}</div>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-2"
+    >
+      <motion.div variants={itemVariants} className="flex items-start gap-2.5 rounded-xl border border-red-500/15 bg-gradient-to-br from-red-500/5 to-transparent p-3">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-500/10">
+          <AlertTriangleIcon className="h-3.5 w-3.5 text-red-500" />
         </div>
-      </div>
-      <div className="flex items-start gap-2 bg-green-500/5 rounded-lg p-3">
-        <TrendingUpIcon className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-        <div>
-          <div className="text-sm font-medium text-green-500">Escenario Alcista ({scenarios.bullish.probability}%)</div>
-          <div className="text-xs text-muted-foreground">Objetivo: ${scenarios.bullish.target.toLocaleString()}</div>
-          <div className="text-xs text-muted-foreground">Si: {scenarios.bullish.trigger}</div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-red-500">Bajista</span>
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono text-red-500/80 border-red-500/20 bg-red-500/5">{scenarios.bearish.probability}%</Badge>
+          </div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            Objetivo: <span className="font-mono font-semibold text-red-400">${scenarios.bearish.target.toLocaleString()}</span>
+          </div>
+          <div className="text-[11px] text-muted-foreground/70 mt-0.5 leading-tight">{scenarios.bearish.trigger}</div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+      <motion.div variants={itemVariants} className="flex items-start gap-2.5 rounded-xl border border-green-500/15 bg-gradient-to-br from-green-500/5 to-transparent p-3">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-green-500/10">
+          <TrendingUpIcon className="h-3.5 w-3.5 text-green-500" />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-green-500">Alcista</span>
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono text-green-500/80 border-green-500/20 bg-green-500/5">{scenarios.bullish.probability}%</Badge>
+          </div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            Objetivo: <span className="font-mono font-semibold text-green-400">${scenarios.bullish.target.toLocaleString()}</span>
+          </div>
+          <div className="text-[11px] text-muted-foreground/70 mt-0.5 leading-tight">{scenarios.bullish.trigger}</div>
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
 function TechnicalIndicators({ tech }: { tech: AnalysisResult['technical'] }) {
   return (
-    <div className="grid grid-cols-2 gap-2 mb-3">
-      <div className="bg-card rounded-lg p-2 border">
-        <div className="text-xs text-muted-foreground">RSI (14)</div>
-        <div className="text-sm font-mono font-bold">{tech.rsi}</div>
-      </div>
-      <div className="bg-card rounded-lg p-2 border">
-        <div className="text-xs text-muted-foreground">Tendencia</div>
-        <div className={`text-sm font-bold capitalize ${tech.trend === 'bullish' ? 'text-green-500' : tech.trend === 'bearish' ? 'text-red-500' : ''}`}>{tech.trend}</div>
-      </div>
-      <div className="bg-card rounded-lg p-2 border">
-        <div className="text-xs text-muted-foreground">MA 50</div>
-        <div className="text-sm font-mono">${tech.ma50.toLocaleString()}</div>
-      </div>
-      <div className="bg-card rounded-lg p-2 border">
-        <div className="text-xs text-muted-foreground">MA 200</div>
-        <div className="text-sm font-mono">${tech.ma200.toLocaleString()}</div>
-      </div>
-    </div>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="grid grid-cols-2 gap-2"
+    >
+      {[
+        { label: 'RSI (14)', value: String(tech.rsi), color: '' },
+        { label: 'Tendencia', value: tech.trend === 'bullish' ? 'Alcista' : tech.trend === 'bearish' ? 'Bajista' : 'Neutral', color: tech.trend === 'bullish' ? 'text-green-500' : tech.trend === 'bearish' ? 'text-red-500' : '' },
+        { label: 'MA 50', value: `$${tech.ma50.toLocaleString()}`, color: '' },
+        { label: 'MA 200', value: `$${tech.ma200.toLocaleString()}`, color: '' },
+      ].map((item) => (
+        <motion.div key={item.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
+          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
+          <div className={`text-sm font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
+        </motion.div>
+      ))}
+    </motion.div>
   )
 }
 
 function OnChainSummary({ onChain }: { onChain: AnalysisResult['onChain'] }) {
   return (
-    <div className="grid grid-cols-2 gap-2 mb-3">
-      <div className="bg-card rounded-lg p-2 border">
-        <div className="text-xs text-muted-foreground">Funding Rate</div>
-        <div className={`text-sm font-mono font-bold ${onChain.fundingRate > 0.005 ? 'text-red-500' : 'text-green-500'}`}>
-          {(onChain.fundingRate * 100).toFixed(4)}%
-        </div>
-      </div>
-      <div className="bg-card rounded-lg p-2 border">
-        <div className="text-xs text-muted-foreground">Flujo Exchanges</div>
-        <div className={`text-sm font-bold ${onChain.exchangeNetFlow.includes('outflows') ? 'text-green-500' : 'text-red-500'}`}>
-          {onChain.exchangeNetFlow}
-        </div>
-      </div>
-      <div className="bg-card rounded-lg p-2 border">
-        <div className="text-xs text-muted-foreground">Staking APY</div>
-        <div className="text-sm font-mono font-bold">{onChain.stakingYield.toFixed(1)}%</div>
-      </div>
-      <div className="bg-card rounded-lg p-2 border">
-        <div className="text-xs text-muted-foreground">ETH Staked</div>
-        <div className="text-sm font-mono">{(onChain.totalStaked / 1e6).toFixed(1)}M</div>
-      </div>
-    </div>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="grid grid-cols-2 gap-2"
+    >
+      {[
+        { label: 'Funding Rate', value: `${(onChain.fundingRate * 100).toFixed(4)}%`, color: onChain.fundingRate > 0.005 ? 'text-red-500' : 'text-green-500' },
+        { label: 'Flujo Exchanges', value: onChain.exchangeNetFlow, color: onChain.exchangeNetFlow.includes('outflows') ? 'text-green-500' : 'text-red-500' },
+        { label: 'Staking APY', value: `${onChain.stakingYield.toFixed(1)}%`, color: '' },
+        { label: 'ETH Staked', value: `${(onChain.totalStaked / 1e6).toFixed(1)}M`, color: '' },
+      ].map((item) => (
+        <motion.div key={item.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
+          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
+          <div className={`text-sm font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
+        </motion.div>
+      ))}
+    </motion.div>
   )
 }
 
 function NewsHeadlines({ sentiment }: { sentiment: AnalysisResult['sentiment'] }) {
   return (
-    <div className="space-y-1 mb-3">
-      <div className="text-xs font-medium text-muted-foreground mb-1">Noticias Recientes</div>
+    <div className="space-y-1.5">
+      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Noticias Recientes</div>
       {sentiment.newsHeadlines.length === 0 ? (
-        <div className="text-xs text-muted-foreground italic">No se pudieron cargar noticias</div>
+        <div className="text-xs text-muted-foreground/60 italic">No se pudieron cargar noticias</div>
       ) : (
         sentiment.newsHeadlines.map((h, i) => (
-          <div key={i} className="flex items-start gap-2">
-            <span className={`text-xs mt-0.5 ${h.sentiment === 'positive' ? 'text-green-500' : h.sentiment === 'negative' ? 'text-red-500' : 'text-muted-foreground'}`}>
+          <div key={i} className="flex items-start gap-2 rounded-lg border border-border/30 bg-card/20 p-2">
+            <span className={`mt-0.5 text-xs shrink-0 ${h.sentiment === 'positive' ? 'text-green-500' : h.sentiment === 'negative' ? 'text-red-500' : 'text-muted-foreground'}`}>
               {h.sentiment === 'positive' ? '▲' : h.sentiment === 'negative' ? '▼' : '■'}
             </span>
-            <span className="text-xs text-muted-foreground line-clamp-1">{h.title}</span>
+            <span className="text-[11px] text-muted-foreground leading-tight line-clamp-2">{h.title}</span>
           </div>
         ))
       )}
@@ -191,89 +282,290 @@ function NewsHeadlines({ sentiment }: { sentiment: AnalysisResult['sentiment'] }
 function SourcesList({ sources }: { sources: AnalysisResult['sources'] }) {
   const ok = sources.filter((s) => s.status === 'ok').length
   return (
-    <div className="text-xs text-muted-foreground">
+    <div className="text-[11px] text-muted-foreground/50 font-medium">
       {ok}/{sources.length} fuentes consultadas
     </div>
   )
 }
 
+function OrderBookSummary({ orderBook }: { orderBook: AnalysisResult['orderBook'] }) {
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="grid grid-cols-2 gap-2"
+    >
+      {[
+        { label: 'Bid Depth', value: `${(orderBook.bidDepth / 1000).toFixed(0)}K ETH`, color: 'text-green-500' },
+        { label: 'Ask Depth', value: `${(orderBook.askDepth / 1000).toFixed(0)}K ETH`, color: 'text-red-500' },
+        { label: 'Bid/Ask Ratio', value: orderBook.bidAskRatio.toFixed(2), color: orderBook.bidAskRatio > 1 ? 'text-green-500' : 'text-red-500' },
+        { label: 'Opción Flow', value: orderBook.optionFlowSentiment === 'bullish' ? 'Calls ▲' : orderBook.optionFlowSentiment === 'bearish' ? 'Puts ▼' : '—', color: orderBook.optionFlowSentiment === 'bullish' ? 'text-green-500' : orderBook.optionFlowSentiment === 'bearish' ? 'text-red-500' : '' },
+      ].map((item) => (
+        <motion.div key={item.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
+          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
+          <div className={`text-sm font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
+        </motion.div>
+      ))}
+    </motion.div>
+  )
+}
+
+function WhaleSummary({ whaleData }: { whaleData: AnalysisResult['whaleData'] }) {
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="grid grid-cols-2 gap-2"
+    >
+      {[
+        { label: 'Txns Grandes (24h)', value: String(whaleData.largeTxns24h), color: '' },
+        { label: 'Volumen', value: `$${(whaleData.totalVolumeUsd / 1e6).toFixed(1)}M`, color: '' },
+        { label: 'Acumulación', value: whaleData.accumulation === 'accumulating' ? 'Comprando' : whaleData.accumulation === 'distributing' ? 'Vendiendo' : 'Neutral', color: whaleData.accumulation === 'accumulating' ? 'text-green-500' : whaleData.accumulation === 'distributing' ? 'text-red-500' : '' },
+        { label: 'Flujo Ballenas', value: whaleData.topWhaleNetFlow, color: whaleData.topWhaleNetFlow.includes('inflow') ? 'text-green-500' : whaleData.topWhaleNetFlow.includes('outflow') ? 'text-red-500' : '' },
+      ].map((item) => (
+        <motion.div key={item.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
+          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
+          <div className={`text-sm font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
+        </motion.div>
+      ))}
+    </motion.div>
+  )
+}
+
+function MacroSummary({ macro }: { macro: AnalysisResult['macro'] }) {
+  return (
+    <div className="space-y-2">
+      <div className={`text-xs font-medium ${macro.riskOn ? 'text-green-500' : 'text-yellow-500'}`}>
+        {macro.riskOn ? 'Entorno favorable al riesgo' : 'Precaución — eventos macro esta semana'}
+      </div>
+      {macro.upcomingEvents.length > 0 ? (
+        <div className="space-y-1.5">
+          {macro.upcomingEvents.map((e, i) => (
+            <div key={i} className="flex items-center justify-between rounded-lg border border-border/30 bg-card/20 px-2.5 py-1.5">
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] text-muted-foreground truncate">{e.name}</div>
+                <div className="text-[10px] text-muted-foreground/60">{e.date}</div>
+              </div>
+              <Badge variant="outline" className={`text-[10px] h-5 shrink-0 ml-2 ${e.impact === 'high' ? 'border-red-500/30 text-red-500' : 'border-yellow-500/30 text-yellow-500'}`}>
+                {e.impact === 'high' ? 'Alto' : 'Medio'}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground/60 italic">{macro.marketContext}</div>
+      )}
+    </div>
+  )
+}
+
+function TimeframeSummary({ timeframe }: { timeframe: AnalysisResult['timeframe'] }) {
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-2"
+    >
+      <div className="flex items-center gap-2">
+        <div className={`text-xs font-semibold ${timeframe.alignment === 'aligned' ? 'text-green-500' : timeframe.alignment === 'partial' ? 'text-yellow-500' : 'text-red-500'}`}>
+          {timeframe.alignment === 'aligned' ? '✅ Alineado' : timeframe.alignment === 'partial' ? '⚠️ Parcial' : '❌ Conflictivo'}
+        </div>
+        <Badge variant="secondary" className="text-[10px] h-5 font-normal capitalize">
+          Dom: {timeframe.dominantTrend === 'bullish' ? 'Alcista' : timeframe.dominantTrend === 'bearish' ? 'Bajista' : 'Neutral'}
+        </Badge>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: 'Diario', trend: timeframe.daily.trend, rsi: timeframe.daily.rsi, ma: timeframe.daily.maStatus },
+          { label: '4H', trend: timeframe.fourHour.trend, rsi: timeframe.fourHour.rsi, ma: timeframe.fourHour.maStatus },
+          { label: '1H', trend: timeframe.oneHour.trend, rsi: timeframe.oneHour.rsi, ma: timeframe.oneHour.maStatus },
+        ].map((tf) => (
+          <motion.div key={tf.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2 backdrop-blur-sm text-center">
+            <div className="text-[10px] text-muted-foreground font-medium uppercase">{tf.label}</div>
+            <div className={`text-sm font-bold ${tf.trend === 'bullish' ? 'text-green-500' : tf.trend === 'bearish' ? 'text-red-500' : ''}`}>
+              {tf.trend === 'bullish' ? '▲' : tf.trend === 'bearish' ? '▼' : '—'}
+            </div>
+            <div className="text-[10px] font-mono text-muted-foreground/70">RSI {tf.rsi}</div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+
+function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="text-muted-foreground/60">{icon}</div>
+      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</span>
+    </div>
+  )
+}
+
 export function ChatMessage({ role, content, analysis, loading }: ChatMessageProps) {
+  const [detailsOpen, setDetailsOpen] = useState(false)
+
   if (loading) {
     return (
-      <div className={`flex gap-3 ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`flex gap-3 ${role === 'user' ? 'justify-end' : 'justify-start'}`}
+      >
         {role === 'assistant' && (
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-primary text-primary-foreground text-xs">AI</AvatarFallback>
+          <Avatar className="mt-0.5 h-7 w-7 shrink-0">
+            <AvatarFallback className="bg-gradient-to-br from-cyber/30 to-cyber/10 text-[10px] font-bold text-cyber ring-1 ring-cyber/20">AI</AvatarFallback>
           </Avatar>
         )}
-        <div className="max-w-[80%] space-y-2">
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-4 w-64" />
-          <Skeleton className="h-4 w-40" />
+        <div className="space-y-2.5 rounded-2xl bg-card/30 p-4 backdrop-blur-sm border border-border/30 min-w-[200px]">
+          <Skeleton className="h-3 w-3/4 rounded-full" />
+          <Skeleton className="h-3 w-full rounded-full" />
+          <Skeleton className="h-3 w-1/2 rounded-full" />
         </div>
-      </div>
+      </motion.div>
     )
   }
 
   if (role === 'user') {
     return (
-      <div className="flex gap-3 justify-end">
-        <Card className="bg-primary text-primary-foreground p-3 max-w-[80%]">
-          <p className="text-sm">{content}</p>
-        </Card>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="flex gap-3 justify-end"
+      >
+        <div className="rounded-2xl bg-gradient-to-br from-primary/90 to-primary/70 px-4 py-2.5 max-w-[80%] shadow-lg shadow-primary/10">
+          <p className="text-sm text-primary-foreground leading-relaxed">{content}</p>
+        </div>
+      </motion.div>
     )
   }
 
   return (
-    <div className="flex gap-3 justify-start">
-      <Avatar className="h-8 w-8 shrink-0">
-        <AvatarFallback className="bg-primary text-primary-foreground text-xs">AI</AvatarFallback>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+      className="flex gap-3 justify-start group"
+    >
+      <Avatar className="mt-1 h-7 w-7 shrink-0">
+        <AvatarFallback className="bg-gradient-to-br from-cyber/30 to-cyber/10 text-[10px] font-bold text-cyber ring-1 ring-cyber/20">AI</AvatarFallback>
       </Avatar>
-      <div className="max-w-[85%] space-y-3">
+      <div className="min-w-0 max-w-[85%] space-y-3">
         {analysis ? (
           <>
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Análisis de Ethereum</h3>
-              <span className="text-xs text-muted-foreground">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="flex items-center justify-between"
+            >
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{`Análisis de ${analysis.asset === 'btc' ? 'Bitcoin' : analysis.asset === 'gold' ? 'Gold' : 'Ethereum'}`}</h3>
+              <span className="text-[10px] text-muted-foreground/50 font-mono">
                 {new Date(analysis.timestamp).toLocaleTimeString()}
               </span>
-            </div>
+            </motion.div>
 
-            <PriceDisplay price={analysis.priceData.price} change={analysis.priceData.change24h} />
-            <VerdictCard verdict={analysis.verdict} />
-            <KeyLevels verdict={analysis.verdict} />
-            <Scenarios scenarios={analysis.scenarios} />
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+            >
+              <Card className="overflow-hidden border-border/40 bg-card/40 backdrop-blur-sm shadow-lg shadow-black/5">
+                <div className="p-4 space-y-4">
+                  <PriceDisplay price={analysis.priceData.price} change={analysis.priceData.change24h} />
+                  <VerdictCard verdict={analysis.verdict} />
+                  <KeyLevels verdict={analysis.verdict} />
+                  <Scenarios scenarios={analysis.scenarios} />
 
-            <details className="group">
-              <summary className="text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                Ver análisis detallado
-              </summary>
-              <div className="mt-2 space-y-3">
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Técnico</h4>
-                  <TechnicalIndicators tech={analysis.technical} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">On-Chain</h4>
-                  <OnChainSummary onChain={analysis.onChain} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sentimiento</h4>
-                  <div className="space-y-2">
-                    <SentimentBadge label="Fear & Greed" value={analysis.sentiment.fearGreedIndex} />
-                    <NewsHeadlines sentiment={analysis.sentiment} />
+                  <div className="border-t border-border/30 pt-3">
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setDetailsOpen(!detailsOpen)}
+                      className="flex w-full items-center justify-between text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <span>Análisis detallado</span>
+                      <motion.div
+                        animate={{ rotate: detailsOpen ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronDownIcon className="h-3.5 w-3.5" />
+                      </motion.div>
+                    </motion.button>
+                    <AnimatePresence initial={false}>
+                      {detailsOpen && (
+                        <motion.div
+                          key="details"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-3 space-y-4">
+                            <div className="space-y-2">
+                              <SectionHeader icon={<BarChart3Icon className="h-3 w-3" />} label="Técnico" />
+                              <TechnicalIndicators tech={analysis.technical} />
+                            </div>
+                            <div className="space-y-2">
+                              <SectionHeader icon={<ActivityIcon className="h-3 w-3" />} label="On-Chain" />
+                              <OnChainSummary onChain={analysis.onChain} />
+                            </div>
+                            <div className="space-y-2">
+                              <SectionHeader icon={<BookOpenIcon className="h-3 w-3" />} label="Order Book" />
+                              <OrderBookSummary orderBook={analysis.orderBook} />
+                            </div>
+                            <div className="space-y-2">
+                              <SectionHeader icon={<FishSymbolIcon className="h-3 w-3" />} label="Ballenas" />
+                              <WhaleSummary whaleData={analysis.whaleData} />
+                            </div>
+                            <div className="space-y-2">
+                              <SectionHeader icon={<LayersIcon className="h-3 w-3" />} label="Multi-Timeframe" />
+                              <TimeframeSummary timeframe={analysis.timeframe} />
+                            </div>
+                            <div className="space-y-2">
+                              <SectionHeader icon={<GlobeIcon className="h-3 w-3" />} label="Macro" />
+                              <MacroSummary macro={analysis.macro} />
+                            </div>
+                            <div className="space-y-2">
+                              <SectionHeader icon={<NewspaperIcon className="h-3 w-3" />} label="Sentimiento" />
+                              <div className="space-y-2.5 pl-1">
+                                <SentimentBadge label="Fear & Greed" value={analysis.sentiment.fearGreedIndex} />
+                                <NewsHeadlines sentiment={analysis.sentiment} />
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
-              </div>
-            </details>
+              </Card>
+            </motion.div>
 
-            <SourcesList sources={analysis.sources} />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.15 }}
+            >
+              <SourcesList sources={analysis.sources} />
+            </motion.div>
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">{content}</p>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="rounded-2xl bg-card/30 px-4 py-2.5 border border-border/30 backdrop-blur-sm"
+          >
+            <p className="text-sm text-muted-foreground leading-relaxed">{content}</p>
+          </motion.div>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }

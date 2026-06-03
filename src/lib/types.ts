@@ -49,13 +49,71 @@ export interface SourceInfo {
   error?: string
 }
 
+export interface OrderBookData {
+  bidDepth: number
+  askDepth: number
+  bidAskRatio: number
+  optionFlow: string
+  optionFlowSentiment: 'bullish' | 'bearish' | 'neutral'
+  maxPain: number
+}
+
+export interface WhaleData {
+  largeTxns24h: number
+  totalVolumeUsd: number
+  accumulation: 'accumulating' | 'distributing' | 'neutral'
+  topWhaleNetFlow: string
+  notableTxns: { hash: string; value: number; from: string; to: string; timestamp: string }[]
+}
+
+export interface MacroData {
+  upcomingEvents: { name: string; date: string; impact: 'high' | 'medium' | 'low'; expected: string }[]
+  marketContext: string
+  riskOn: boolean
+}
+
+export interface TimeframeData {
+  daily: { trend: 'bullish' | 'bearish' | 'neutral'; rsi: number; maStatus: string }
+  fourHour: { trend: 'bullish' | 'bearish' | 'neutral'; rsi: number; maStatus: string }
+  oneHour: { trend: 'bullish' | 'bearish' | 'neutral'; rsi: number; maStatus: string }
+  alignment: 'aligned' | 'partial' | 'conflicting'
+  dominantTrend: 'bullish' | 'bearish' | 'neutral'
+}
+
+export type Asset = 'eth' | 'btc' | 'gold'
+
+export interface AssetConfig {
+  id: Asset
+  name: string
+  symbol: string
+  coinGeckoId: string
+  binanceSymbol: string
+  cmcSlug: string
+  icon: string
+}
+
+export const ASSETS: AssetConfig[] = [
+  { id: 'eth', name: 'Ethereum', symbol: 'ETH', coinGeckoId: 'ethereum', binanceSymbol: 'ETHUSDT', cmcSlug: 'ethereum', icon: '⟠' },
+  { id: 'btc', name: 'Bitcoin', symbol: 'BTC', coinGeckoId: 'bitcoin', binanceSymbol: 'BTCUSDT', cmcSlug: 'bitcoin', icon: '₿' },
+  { id: 'gold', name: 'Gold', symbol: 'XAU', coinGeckoId: '', binanceSymbol: '', cmcSlug: '', icon: '👑' },
+]
+
+export function getAssetConfig(id: Asset): AssetConfig {
+  return ASSETS.find((a) => a.id === id) ?? ASSETS[0]
+}
+
 export interface AnalysisResult {
+  asset: Asset
   timestamp: string
   priceData: PriceData
   technical: TechnicalIndicators
   onChain: OnChainData
   sentiment: SentimentData
   fundamental: FundamentalData
+  orderBook: OrderBookData
+  whaleData: WhaleData
+  macro: MacroData
+  timeframe: TimeframeData
   verdict: {
     shortTerm: 'buy' | 'sell' | 'hold'
     longTerm: 'buy' | 'sell' | 'hold'
