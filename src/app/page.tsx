@@ -64,8 +64,13 @@ export default function Home() {
     setInput('')
     setLoading(true)
 
+    const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
+    const apiUrl = isTauri
+      ? `https://crypto-analysis-ai-nine.vercel.app/api/analyze?ai=false&asset=${asset}`
+      : `/api/analyze?ai=false&asset=${asset}`
+
     try {
-      const res = await fetch(`/api/analyze?ai=false&asset=${asset}`)
+      const res = await fetch(apiUrl)
       if (!res.ok) throw new Error('Failed to fetch')
       const data: AnalysisResult = await res.json()
       setMessages((prev) =>
