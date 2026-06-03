@@ -1,0 +1,19 @@
+🚀 Acabo de lanzar Crypto Analysis AI — un analizador de mercado en tiempo real para ETH, BTC y Gold.
+
+🧠 ¿Qué hace?
+• Order Book en vivo (Binance Depth)
+• Tracking de ballenas (grandes transacciones)
+• Calendario macroeconómico (CPI, FOMC)
+• Confirmación multi-timeframe (1d + 4h + 1h)
+• Análisis técnico, on-chain y sentimiento
+• Verdict con scoring ponderado y escenarios
+
+⚡ Stack: Next.js 16, React 19, shadcn/ui (base-nova), Tailwind v4
+🎨 UX: Framer Motion + GSAP + ScrollReveal + glassmorphism
+📊 Fuentes: CoinGecko, Binance, CoinMarketCap, Fear & Greed, CoinDesk, DeFi Llama y mas
+
+🌐 URL: crypto-analysis-ai-nine.vercel.app
+
+💡 Diseñado para ayudar a pensar la operación, no para decir qué hacer. Siempre verificá precios en vivo y hacé tu propio análisis de riesgo.
+
+#Crypto #Ethereum #Bitcoin #Gold #Trading #NextJS #React #WebDev #DataAnalysis
