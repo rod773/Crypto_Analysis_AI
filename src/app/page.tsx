@@ -66,11 +66,18 @@ export default function Home() {
 
     let data: AnalysisResult | null = null
 
-    // Try Vercel API first (works in web mode)
-    try {
-      const res = await fetch(`/api/analyze?ai=false&asset=${asset}`)
-      if (res.ok) data = await res.json()
-    } catch { /* fall through to client-side */ }
+    const apiBases = [
+      '',
+      ...(process.env.NEXT_PUBLIC_VERCEL_URL ? [`https://${process.env.NEXT_PUBLIC_VERCEL_URL}`] : []),
+      'http://localhost:3000',
+    ]
+
+    for (const base of apiBases) {
+      try {
+        const res = await fetch(`${base}/api/analyze/?ai=false&asset=${asset}`)
+        if (res.ok) { data = await res.json(); break }
+      } catch { /* try next */ }
+    }
 
     // Fallback: client-side analysis with free APIs
     if (!data) {

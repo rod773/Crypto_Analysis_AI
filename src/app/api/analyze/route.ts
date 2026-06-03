@@ -9,21 +9,29 @@ export const maxDuration = 60
 export async function GET(request: NextRequest) {
   const useAI = request.nextUrl.searchParams.get('ai') === 'true'
   const asset = (request.nextUrl.searchParams.get('asset') ?? 'eth') as Asset
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  }
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
   try {
     const sources = await scrapeAllSources(asset)
     const analysis = analyze(sources, asset)
     if (useAI) {
       try {
         const aiAnalysis = await generateAIAnalysis(analysis)
-        return Response.json({ ...analysis, aiAnalysis })
+        return Response.json({ ...analysis, aiAnalysis }, { headers: corsHeaders })
       } catch {
-        return Response.json({ ...analysis, aiAnalysis: null })
+        return Response.json({ ...analysis, aiAnalysis: null }, { headers: corsHeaders })
       }
     }
-    return Response.json(analysis)
+    return Response.json(analysis, { headers: corsHeaders })
   } catch (error) {
     console.error('Analysis error:', error)
-    return Response.json({ error: 'Failed to analyze' }, { status: 500 })
+    return Response.json({ error: 'Failed to analyze' }, { status: 500, headers: corsHeaders })
   }
 }
 
