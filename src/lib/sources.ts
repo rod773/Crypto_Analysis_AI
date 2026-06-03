@@ -9,6 +9,19 @@ interface RawSourceData {
   error?: string
 }
 
+const cache = new Map<string, { data: unknown; expiry: number }>()
+
+function getCached<T>(key: string): T | undefined {
+  const entry = cache.get(key)
+  if (entry && entry.expiry > Date.now()) return entry.data as T
+  cache.delete(key)
+  return undefined
+}
+
+function setCache<T>(key: string, data: T, ttlMs: number): void {
+  cache.set(key, { data, expiry: Date.now() + ttlMs })
+}
+
 async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
@@ -26,9 +39,18 @@ async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response
 async function scrapeCoinGecko(asset: AssetConfig): Promise<RawSourceData> {
   const name = 'CoinGecko'
   const url = `https://api.coingecko.com/api/v3/simple/price?ids=${asset.coinGeckoId}&vs_currencies=usd&include_24hr_vol=true&include_24hr_change=true&include_market_cap=true`
+  const cacheKey = `coingecko:${asset.coinGeckoId}`
+  const cached = getCached<Record<string, unknown>>(cacheKey)
+  if (cached) return { name, url, data: cached }
   try {
     const res = await fetchWithTimeout(url)
+    if (res.status === 429) {
+      const cached = getCached<Record<string, unknown>>(cacheKey)
+      if (cached) return { name, url, data: cached }
+      return { name, url, data: {}, error: 'Rate limited by CoinGecko' }
+    }
     const json = await res.json() as Record<string, unknown>
+    setCache(cacheKey, json, 30_000)
     return { name, url, data: json }
   } catch (e) {
     return { name, url, data: {}, error: String(e) }

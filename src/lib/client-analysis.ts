@@ -1,11 +1,25 @@
 import type { AnalysisResult, Asset } from './types'
 import { getAssetConfig } from './types'
 
+const cache = new Map<string, { data: unknown; expiry: number }>()
+
+function getCached<T>(key: string): T | undefined {
+  const entry = cache.get(key)
+  if (entry && entry.expiry > Date.now()) return entry.data as T
+  cache.delete(key)
+  return undefined
+}
+
+function setCache<T>(key: string, data: T, ttlMs: number): void {
+  cache.set(key, { data, expiry: Date.now() + ttlMs })
+}
+
 async function fetchJson(url: string, timeoutMs = 10000): Promise<unknown> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch(url, { signal: controller.signal })
+    if (res.status === 429) throw new Error('HTTP 429')
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return await res.json()
   } finally {
@@ -188,16 +202,27 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
   let change24h = 0
   let fearGreed = 25
 
-  try {
-    const cgData = await fetchJson(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${ac.coinGeckoId}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`
-    ) as Record<string, Record<string, number>>
-    const coin = cgData?.[ac.coinGeckoId]
+  const cgCacheKey = `coingecko:${ac.coinGeckoId}`
+  const cached = getCached<Record<string, Record<string, number>>>(cgCacheKey)
+  if (cached) {
+    const coin = cached?.[ac.coinGeckoId]
     if (coin) {
       price = coin.usd ?? price
       change24h = coin.usd_24h_change ?? 0
     }
-  } catch { /* use defaults */ }
+  } else {
+    try {
+      const cgData = await fetchJson(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${ac.coinGeckoId}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`
+      ) as Record<string, Record<string, number>>
+      setCache(cgCacheKey, cgData, 30_000)
+      const coin = cgData?.[ac.coinGeckoId]
+      if (coin) {
+        price = coin.usd ?? price
+        change24h = coin.usd_24h_change ?? 0
+      }
+    } catch { /* use defaults */ }
+  }
 
   try {
     const fng = await fetchJson('https://api.alternative.me/fng/?limit=1') as { data?: { value?: string }[] }
