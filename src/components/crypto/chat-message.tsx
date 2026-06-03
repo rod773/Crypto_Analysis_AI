@@ -46,8 +46,8 @@ function SentimentBadge({ label, value }: { label: string; value: number }) {
     : 'bg-green-500/10 text-green-500 border-green-500/20'
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground">{label}:</span>
-      <Badge variant="outline" className={`${color} font-mono text-xs`}>{value}</Badge>
+      <span className="text-sm text-muted-foreground">{label}:</span>
+      <Badge variant="outline" className={`${color} font-mono text-sm`}>{value}</Badge>
     </div>
   )
 }
@@ -80,18 +80,18 @@ function VerdictCard({ verdict }: { verdict: AnalysisResult['verdict'] }) {
             <div className="flex items-center gap-2">
               {verdictIcon}
               <span className="font-bold text-base tracking-tight">{shortLabel}</span>
-              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal bg-background/50">Corto</Badge>
+              <Badge variant="secondary" className="text-xs h-5 px-2 font-normal bg-background/50">Corto</Badge>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="text-[10px]">Confianza</span>
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <span className="text-xs">Confianza</span>
               <span className="font-semibold font-mono text-foreground">{verdict.confidence}%</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="font-bold text-base tracking-tight">{longLabel}</span>
-            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal bg-background/50">Largo</Badge>
+            <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal bg-background/50">Largo</Badge>
           </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">{verdict.summary}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{verdict.summary}</p>
         </div>
       </Card>
     </motion.div>
@@ -161,8 +161,8 @@ function KeyLevels({ verdict }: { verdict: AnalysisResult['verdict'] }) {
           whileHover={{ scale: 1.04 }}
           className={`${item.bg} ${item.border} rounded-xl border p-2.5 text-center transition-colors`}
         >
-          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
-          <div className={`text-sm font-mono font-bold text-${item.color}-500`}>
+            <div className="text-sm text-muted-foreground font-medium tracking-wide">{item.label}</div>
+            <div className={`text-base font-mono font-bold text-${item.color}-500`}>
             ${item.value.toLocaleString()}
           </div>
         </motion.div>
@@ -185,13 +185,13 @@ function Scenarios({ scenarios }: { scenarios: AnalysisResult['scenarios'] }) {
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-red-500">Bajista</span>
-            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono text-red-500/80 border-red-500/20 bg-red-500/5">{scenarios.bearish.probability}%</Badge>
+            <span className="text-sm font-semibold text-red-500">Bajista</span>
+            <Badge variant="outline" className="text-xs h-5 px-2 font-mono text-red-500/80 border-red-500/20 bg-red-500/5">{scenarios.bearish.probability}%</Badge>
           </div>
-          <div className="mt-0.5 text-xs text-muted-foreground">
+          <div className="mt-0.5 text-sm text-muted-foreground">
             Objetivo: <span className="font-mono font-semibold text-red-400">${scenarios.bearish.target.toLocaleString()}</span>
           </div>
-          <div className="text-[11px] text-muted-foreground/70 mt-0.5 leading-tight">{scenarios.bearish.trigger}</div>
+          <div className="text-sm text-muted-foreground/70 mt-0.5 leading-tight">{scenarios.bearish.trigger}</div>
         </div>
       </motion.div>
       <motion.div variants={itemVariants} className="flex items-start gap-2.5 rounded-xl border border-green-500/15 bg-gradient-to-br from-green-500/5 to-transparent p-3">
@@ -200,13 +200,13 @@ function Scenarios({ scenarios }: { scenarios: AnalysisResult['scenarios'] }) {
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-green-500">Alcista</span>
-            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono text-green-500/80 border-green-500/20 bg-green-500/5">{scenarios.bullish.probability}%</Badge>
+            <span className="text-sm font-semibold text-green-500">Alcista</span>
+            <Badge variant="outline" className="text-xs h-5 px-2 font-mono text-green-500/80 border-green-500/20 bg-green-500/5">{scenarios.bullish.probability}%</Badge>
           </div>
-          <div className="mt-0.5 text-xs text-muted-foreground">
+          <div className="mt-0.5 text-sm text-muted-foreground">
             Objetivo: <span className="font-mono font-semibold text-green-400">${scenarios.bullish.target.toLocaleString()}</span>
           </div>
-          <div className="text-[11px] text-muted-foreground/70 mt-0.5 leading-tight">{scenarios.bullish.trigger}</div>
+          <div className="text-sm text-muted-foreground/70 mt-0.5 leading-tight">{scenarios.bullish.trigger}</div>
         </div>
       </motion.div>
     </motion.div>
@@ -228,8 +228,8 @@ function TechnicalIndicators({ tech }: { tech: AnalysisResult['technical'] }) {
         { label: 'MA 200', value: `$${tech.ma200.toLocaleString()}`, color: '' },
       ].map((item) => (
         <motion.div key={item.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
-          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
-          <div className={`text-sm font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
+          <div className="text-sm text-muted-foreground font-medium tracking-wide">{item.label}</div>
+          <div className={`text-base font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
         </motion.div>
       ))}
     </motion.div>
@@ -251,7 +251,7 @@ function OnChainSummary({ onChain }: { onChain: AnalysisResult['onChain'] }) {
         { label: 'ETH Staked', value: `${(onChain.totalStaked / 1e6).toFixed(1)}M`, color: '' },
       ].map((item) => (
         <motion.div key={item.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
-          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
+          <div className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
           <div className={`text-sm font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
         </motion.div>
       ))}
@@ -262,7 +262,7 @@ function OnChainSummary({ onChain }: { onChain: AnalysisResult['onChain'] }) {
 function NewsHeadlines({ sentiment }: { sentiment: AnalysisResult['sentiment'] }) {
   return (
     <div className="space-y-1.5">
-      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Noticias Recientes</div>
+      <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Noticias Recientes</div>
       {sentiment.newsHeadlines.length === 0 ? (
         <div className="text-xs text-muted-foreground/60 italic">No se pudieron cargar noticias</div>
       ) : (
@@ -271,7 +271,7 @@ function NewsHeadlines({ sentiment }: { sentiment: AnalysisResult['sentiment'] }
             <span className={`mt-0.5 text-xs shrink-0 ${h.sentiment === 'positive' ? 'text-green-500' : h.sentiment === 'negative' ? 'text-red-500' : 'text-muted-foreground'}`}>
               {h.sentiment === 'positive' ? '▲' : h.sentiment === 'negative' ? '▼' : '■'}
             </span>
-            <span className="text-[11px] text-muted-foreground leading-tight line-clamp-2">{h.title}</span>
+            <span className="text-sm text-muted-foreground leading-tight line-clamp-2">{h.title}</span>
           </div>
         ))
       )}
@@ -282,7 +282,7 @@ function NewsHeadlines({ sentiment }: { sentiment: AnalysisResult['sentiment'] }
 function SourcesList({ sources }: { sources: AnalysisResult['sources'] }) {
   const ok = sources.filter((s) => s.status === 'ok').length
   return (
-    <div className="text-[11px] text-muted-foreground/50 font-medium">
+    <div className="text-sm text-muted-foreground/60 font-medium">
       {ok}/{sources.length} fuentes consultadas
     </div>
   )
@@ -303,8 +303,8 @@ function OrderBookSummary({ orderBook }: { orderBook: AnalysisResult['orderBook'
         { label: 'Opción Flow', value: orderBook.optionFlowSentiment === 'bullish' ? 'Calls ▲' : orderBook.optionFlowSentiment === 'bearish' ? 'Puts ▼' : '—', color: orderBook.optionFlowSentiment === 'bullish' ? 'text-green-500' : orderBook.optionFlowSentiment === 'bearish' ? 'text-red-500' : '' },
       ].map((item) => (
         <motion.div key={item.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
-          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
-          <div className={`text-sm font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
+          <div className="text-sm text-muted-foreground font-medium tracking-wide">{item.label}</div>
+          <div className={`text-base font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
         </motion.div>
       ))}
     </motion.div>
@@ -326,8 +326,8 @@ function WhaleSummary({ whaleData }: { whaleData: AnalysisResult['whaleData'] })
         { label: 'Flujo Ballenas', value: whaleData.topWhaleNetFlow, color: whaleData.topWhaleNetFlow.includes('inflow') ? 'text-green-500' : whaleData.topWhaleNetFlow.includes('outflow') ? 'text-red-500' : '' },
       ].map((item) => (
         <motion.div key={item.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2.5 backdrop-blur-sm">
-          <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">{item.label}</div>
-          <div className={`text-sm font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
+          <div className="text-sm text-muted-foreground font-medium tracking-wide">{item.label}</div>
+          <div className={`text-base font-mono font-bold mt-0.5 ${item.color || ''}`}>{item.value}</div>
         </motion.div>
       ))}
     </motion.div>
@@ -337,25 +337,25 @@ function WhaleSummary({ whaleData }: { whaleData: AnalysisResult['whaleData'] })
 function MacroSummary({ macro }: { macro: AnalysisResult['macro'] }) {
   return (
     <div className="space-y-2">
-      <div className={`text-xs font-medium ${macro.riskOn ? 'text-green-500' : 'text-yellow-500'}`}>
+      <div className={`text-sm font-medium ${macro.riskOn ? 'text-green-500' : 'text-yellow-500'}`}>
         {macro.riskOn ? 'Entorno favorable al riesgo' : 'Precaución — eventos macro esta semana'}
       </div>
       {macro.upcomingEvents.length > 0 ? (
         <div className="space-y-1.5">
           {macro.upcomingEvents.map((e, i) => (
-            <div key={i} className="flex items-center justify-between rounded-lg border border-border/30 bg-card/20 px-2.5 py-1.5">
+            <div key={i} className="flex items-center justify-between rounded-lg border border-border/30 bg-card/20 px-3 py-2">
               <div className="min-w-0 flex-1">
-                <div className="text-[11px] text-muted-foreground truncate">{e.name}</div>
-                <div className="text-[10px] text-muted-foreground/60">{e.date}</div>
+                <div className="text-sm text-muted-foreground truncate">{e.name}</div>
+                <div className="text-xs text-muted-foreground/60">{e.date}</div>
               </div>
-              <Badge variant="outline" className={`text-[10px] h-5 shrink-0 ml-2 ${e.impact === 'high' ? 'border-red-500/30 text-red-500' : 'border-yellow-500/30 text-yellow-500'}`}>
+              <Badge variant="outline" className={`text-xs h-5 shrink-0 ml-2 ${e.impact === 'high' ? 'border-red-500/30 text-red-500' : 'border-yellow-500/30 text-yellow-500'}`}>
                 {e.impact === 'high' ? 'Alto' : 'Medio'}
               </Badge>
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-xs text-muted-foreground/60 italic">{macro.marketContext}</div>
+        <div className="text-sm text-muted-foreground/60 italic">{macro.marketContext}</div>
       )}
     </div>
   )
@@ -370,10 +370,10 @@ function TimeframeSummary({ timeframe }: { timeframe: AnalysisResult['timeframe'
       className="space-y-2"
     >
       <div className="flex items-center gap-2">
-        <div className={`text-xs font-semibold ${timeframe.alignment === 'aligned' ? 'text-green-500' : timeframe.alignment === 'partial' ? 'text-yellow-500' : 'text-red-500'}`}>
+        <div className={`text-sm font-semibold ${timeframe.alignment === 'aligned' ? 'text-green-500' : timeframe.alignment === 'partial' ? 'text-yellow-500' : 'text-red-500'}`}>
           {timeframe.alignment === 'aligned' ? '✅ Alineado' : timeframe.alignment === 'partial' ? '⚠️ Parcial' : '❌ Conflictivo'}
         </div>
-        <Badge variant="secondary" className="text-[10px] h-5 font-normal capitalize">
+        <Badge variant="secondary" className="text-xs h-5 px-2 font-normal capitalize">
           Dom: {timeframe.dominantTrend === 'bullish' ? 'Alcista' : timeframe.dominantTrend === 'bearish' ? 'Bajista' : 'Neutral'}
         </Badge>
       </div>
@@ -384,11 +384,11 @@ function TimeframeSummary({ timeframe }: { timeframe: AnalysisResult['timeframe'
           { label: '1H', trend: timeframe.oneHour.trend, rsi: timeframe.oneHour.rsi, ma: timeframe.oneHour.maStatus },
         ].map((tf) => (
           <motion.div key={tf.label} variants={itemVariants} className="rounded-xl border border-border/50 bg-card/30 p-2 backdrop-blur-sm text-center">
-            <div className="text-[10px] text-muted-foreground font-medium uppercase">{tf.label}</div>
-            <div className={`text-sm font-bold ${tf.trend === 'bullish' ? 'text-green-500' : tf.trend === 'bearish' ? 'text-red-500' : ''}`}>
+            <div className="text-sm text-muted-foreground font-medium">{tf.label}</div>
+            <div className={`text-base font-bold ${tf.trend === 'bullish' ? 'text-green-500' : tf.trend === 'bearish' ? 'text-red-500' : ''}`}>
               {tf.trend === 'bullish' ? '▲' : tf.trend === 'bearish' ? '▼' : '—'}
             </div>
-            <div className="text-[10px] font-mono text-muted-foreground/70">RSI {tf.rsi}</div>
+            <div className="text-sm font-mono text-muted-foreground/70">RSI {tf.rsi}</div>
           </motion.div>
         ))}
       </div>
@@ -400,7 +400,7 @@ function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }
   return (
     <div className="flex items-center gap-1.5">
       <div className="text-muted-foreground/60">{icon}</div>
-      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</span>
+      <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
     </div>
   )
 }
@@ -418,7 +418,7 @@ export function ChatMessage({ role, content, analysis, loading }: ChatMessagePro
       >
         {role === 'assistant' && (
           <Avatar className="mt-0.5 h-7 w-7 shrink-0">
-            <AvatarFallback className="bg-gradient-to-br from-cyber/30 to-cyber/10 text-[10px] font-bold text-cyber ring-1 ring-cyber/20">AI</AvatarFallback>
+            <AvatarFallback className="bg-gradient-to-br from-cyber/30 to-cyber/10 text-xs font-bold text-cyber ring-1 ring-cyber/20">AI</AvatarFallback>
           </Avatar>
         )}
         <div className="space-y-2.5 rounded-2xl bg-card/30 p-4 backdrop-blur-sm border border-border/30 min-w-[200px]">
@@ -453,7 +453,7 @@ export function ChatMessage({ role, content, analysis, loading }: ChatMessagePro
       className="flex gap-3 justify-start group"
     >
       <Avatar className="mt-1 h-7 w-7 shrink-0">
-        <AvatarFallback className="bg-gradient-to-br from-cyber/30 to-cyber/10 text-[10px] font-bold text-cyber ring-1 ring-cyber/20">AI</AvatarFallback>
+        <AvatarFallback className="bg-gradient-to-br from-cyber/30 to-cyber/10 text-xs font-bold text-cyber ring-1 ring-cyber/20">AI</AvatarFallback>
       </Avatar>
       <div className="min-w-0 max-w-[85%] space-y-3">
         {analysis ? (
@@ -464,8 +464,8 @@ export function ChatMessage({ role, content, analysis, loading }: ChatMessagePro
               transition={{ duration: 0.3 }}
               className="flex items-center justify-between"
             >
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{`Análisis de ${analysis.asset === 'btc' ? 'Bitcoin' : analysis.asset === 'gold' ? 'Gold' : 'Ethereum'}`}</h3>
-              <span className="text-[10px] text-muted-foreground/50 font-mono">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{`Análisis de ${analysis.asset === 'btc' ? 'Bitcoin' : analysis.asset === 'gold' ? 'Gold' : 'Ethereum'}`}</h3>
+              <span className="text-xs text-muted-foreground/50 font-mono">
                 {new Date(analysis.timestamp).toLocaleTimeString()}
               </span>
             </motion.div>
@@ -486,7 +486,7 @@ export function ChatMessage({ role, content, analysis, loading }: ChatMessagePro
                     <motion.button
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setDetailsOpen(!detailsOpen)}
-                      className="flex w-full items-center justify-between text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      className="flex w-full items-center justify-between rounded-lg border border-border/40 bg-card/40 px-3 py-2 text-sm font-medium text-foreground backdrop-blur-sm transition-all hover:bg-card/60 hover:border-cyber/30"
                     >
                       <span>Análisis detallado</span>
                       <motion.div

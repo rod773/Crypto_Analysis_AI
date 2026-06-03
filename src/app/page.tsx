@@ -143,8 +143,8 @@ export default function Home() {
               <Brain className="h-5 w-5 text-cyber" />
             </div>
             <div>
-              <h1 className="text-base font-semibold tracking-tight">Crypto Analysis AI</h1>
-              <p className="text-[11px] text-muted-foreground leading-tight">{`¿Comprar o vender ${assetConfig.symbol}?`}</p>
+              <h1 className="text-lg font-bold tracking-tight">Crypto Analysis AI</h1>
+              <p className="text-xs text-muted-foreground leading-tight">{`¿Comprar o vender ${assetConfig.symbol}?`}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -208,8 +208,8 @@ export default function Home() {
               className="space-y-3 pt-4"
               data-reveal
             >
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Sparkles className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Sparkles className="h-4 w-4" />
                 <span>Sugerencias rápidas</span>
               </div>
               <motion.div
@@ -230,7 +230,7 @@ export default function Home() {
                     whileHover={{ scale: 1.04 }}
                     whileTap={{ scale: 0.96 }}
                     onClick={() => { setInput(s.label) }}
-                    className="group inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/50 px-3.5 py-1.5 text-xs text-muted-foreground backdrop-blur-sm transition-colors hover:border-cyber/30 hover:bg-cyber/5 hover:text-foreground hover:shadow-[0_0_12px_var(--glow-subtle)]"
+                    className="group inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/50 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-cyber/30 hover:bg-cyber/5 hover:text-foreground hover:shadow-[0_0_12px_var(--glow-subtle)]"
                   >
                     <span className="text-sm leading-none">{s.icon}</span>
                     {s.label}
@@ -252,7 +252,7 @@ export default function Home() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={resetChat}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-card/30 px-4 py-2 text-xs text-muted-foreground backdrop-blur-sm transition-colors hover:border-cyber/30 hover:text-foreground hover:shadow-[0_0_12px_var(--glow-subtle)]"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-card/30 px-5 py-2.5 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-cyber/30 hover:text-foreground hover:shadow-[0_0_12px_var(--glow-subtle)]"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 Volver al inicio
@@ -273,7 +273,7 @@ export default function Home() {
                 disabled={loading}
                 className="h-11 border-border/50 bg-card/50 pl-4 pr-10 text-sm backdrop-blur-sm transition-all placeholder:text-muted-foreground/50 focus-visible:border-cyber/40 focus-visible:shadow-[0_0_16px_var(--glow-subtle)]"
               />
-              <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded border border-border/30 bg-muted/50 px-1.5 text-[10px] text-muted-foreground/60 md:flex">
+              <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded border border-border/30 bg-muted/50 px-1.5 text-xs text-muted-foreground/60 md:flex">
                 <span>⌘</span>K
               </kbd>
             </div>
