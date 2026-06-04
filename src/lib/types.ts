@@ -150,8 +150,8 @@ export interface AnalysisResult {
   whaleData: WhaleData
   macro: MacroData
   timeframe: TimeframeData
-  elliottWave: ElliottWaveData
-  smc: SmcData
+  elliottWave?: ElliottWaveData
+  smc?: SmcData
   verdict: {
     shortTerm: 'buy' | 'sell' | 'hold'
     longTerm: 'buy' | 'sell' | 'hold'

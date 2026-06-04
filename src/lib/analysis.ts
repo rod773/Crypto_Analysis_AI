@@ -404,7 +404,7 @@ function buildVerdict(
     longTerm = 'hold'
     confidence = Math.min(80, 50 + Math.abs(netScore) * 7)
     summary = 'Short-term risks are elevated. Weak technical structure, high funding rates (crowded longs), and bearish sentiment create a dangerous setup. Avoid buying into weakness. If you hold, consider tight stops. For long-term investors, wait for confirmation of support before adding.'
-    stopLoss = Math.round(price * 0.88)
+    stopLoss = Math.round(price * 1.05)
     takeProfitShort = Math.round(price * 0.95)
     takeProfitLong = Math.round(price * 1.10)
   }

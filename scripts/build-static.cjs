@@ -14,6 +14,13 @@ try {
     console.log('API route backed up and removed for static export')
   }
 
+  // Clean Next.js cache to avoid stale type references
+  const nextDir = path.resolve(__dirname, '..', '.next')
+  if (fs.existsSync(nextDir)) {
+    fs.rmSync(nextDir, { recursive: true, force: true })
+    console.log('Cleaned .next cache')
+  }
+
   // Build Next.js static export with Vercel API URL for Tauri
   execSync('npx next build', {
     cwd: path.resolve(__dirname, '..'),
