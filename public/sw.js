@@ -1,39 +1,22 @@
-/* Basic, no-dependency PWA service worker */
+/*
+  Crypto Analysis AI — Service Worker
+  Estrategias:
+  - Navegación (páginas): Network First -> Cache -> Offline Fallback
+  - Assets estáticos: Cache First -> Network
+  - APIs/otros: passthrough (sin interceptar)
+*/
 
-// Versioned cache to allow updates
-const CACHE_NAME = "pwa-cache-v1";
+const CACHE_STATIC = "crypto-ai-static-v1";
+const CACHE_PAGES = "crypto-ai-pages-v1";
 
-// Minimal core assets. For full offline coverage you can expand this list.
 const CORE_ASSETS = [
-  "/", // Next app entry
+  "/",
   "/manifest.json",
   "/icon-192x192.png",
   "/icon-512x512.png",
 ];
 
-self.addEventListener("install", (event) => {
-  console.log("[sw] install");
-  event.waitUntil(
-    (async () => {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.addAll(CORE_ASSETS);
-      self.skipWaiting();
-    })()
-  );
-});
-
-self.addEventListener("activate", (event) => {
-  console.log("[sw] activate");
-  event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(
-        keys.map((key) => (key === CACHE_NAME ? null : caches.delete(key)))
-      );
-      self.clients.claim();
-    })()
-  );
-});
+/* ---------- UTILITIES ---------- */
 
 function isSameOriginGET(request) {
   return (
@@ -42,31 +25,101 @@ function isSameOriginGET(request) {
   );
 }
 
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  if (!isSameOriginGET(request)) return;
+function isStaticAsset(request) {
+  return /\.(?:js|css|png|jpe?g|svg|gif|ico|woff2?|ttf|otf|eot|webp)$/i.test(
+    new URL(request.url).pathname
+  );
+}
 
-  event.respondWith(
+function isNavigationRequest(request) {
+  return request.mode === "navigate";
+}
+
+/* ---------- INSTALL ---------- */
+
+self.addEventListener("install", (event) => {
+  console.log("[SW] Install");
+  event.waitUntil(
     (async () => {
-      const cached = await caches.match(request);
-      if (cached) return cached;
+      const cache = await caches.open(CACHE_STATIC);
+      await cache.addAll(CORE_ASSETS);
+    })()
+  );
+  self.skipWaiting();
+});
 
-      try {
-        const fresh = await fetch(request);
+/* ---------- ACTIVATE ---------- */
 
-        // Cache only successful responses
-        if (fresh && fresh.ok) {
-          const cache = await caches.open(CACHE_NAME);
-          cache.put(request, fresh.clone());
-        }
-
-        return fresh;
-      } catch (err) {
-        // Offline fallback: return cached root if available
-        const fallback = await caches.match("/");
-        if (fallback) return fallback;
-        throw err;
-      }
+self.addEventListener("activate", (event) => {
+  console.log("[SW] Activate");
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_STATIC && key !== CACHE_PAGES) {
+            return caches.delete(key);
+          }
+          return null;
+        })
+      );
+      await self.clients.claim();
     })()
   );
 });
+
+/* ---------- FETCH ---------- */
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+
+  if (!isSameOriginGET(request)) return;
+
+  if (isNavigationRequest(request)) {
+    event.respondWith(handleNavigation(request));
+  } else if (isStaticAsset(request)) {
+    event.respondWith(handleStaticAsset(request));
+  }
+  // Otros requests (ej. API externa) se dejan pasar sin tocar
+});
+
+/* ---------- HANDLERS ---------- */
+
+async function handleNavigation(request) {
+  const cache = await caches.open(CACHE_PAGES);
+
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse && networkResponse.ok) {
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch (err) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+
+    // Último recurso: devolver página raíz cacheada (mejor que nada)
+    const rootFallback = await caches.match("/");
+    if (rootFallback) return rootFallback;
+
+    throw err;
+  }
+}
+
+async function handleStaticAsset(request) {
+  const cache = await caches.open(CACHE_STATIC);
+
+  const cached = await cache.match(request);
+  if (cached) return cached;
+
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse && networkResponse.ok) {
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch (err) {
+    // Si no está en caché y falla la red, dejamos que falle naturalmente
+    throw err;
+  }
+}
