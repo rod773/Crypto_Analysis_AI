@@ -98,6 +98,9 @@ async function scrapeDefiLlama(): Promise<RawSourceData> {
 
 async function scrapeCoinglassFunding(asset: AssetConfig): Promise<RawSourceData> {
   const name = 'Coinglass'
+  if (asset.id === 'aud' || asset.id === 'gold') {
+    return { name, url: '', data: { note: 'N/A para activos fiat' } }
+  }
   const symbol = asset.id === 'btc' ? 'BTC' : 'ETH'
   const url = `https://api.coinglass.com/api/funding-rate/v2/list?symbol=${symbol}`
   try {
@@ -129,7 +132,7 @@ async function scrapeCoinDesk(asset: AssetConfig): Promise<RawSourceData> {
 
 async function scrapeCoinTelegraph(asset: AssetConfig): Promise<RawSourceData> {
   const name = 'CoinTelegraph'
-  const tag = asset.id === 'btc' ? 'bitcoin' : 'ethereum'
+  const tag = asset.id === 'btc' ? 'bitcoin' : asset.id === 'aud' ? 'forex' : 'ethereum'
   const url = `https://cointelegraph.com/tags/${tag}`
   try {
     const res = await fetchWithTimeout(url)
@@ -148,7 +151,7 @@ async function scrapeCoinTelegraph(asset: AssetConfig): Promise<RawSourceData> {
 
 async function scrapeGlassnode(asset: AssetConfig): Promise<RawSourceData> {
   const name = 'Glassnode'
-  const tag = asset.id === 'btc' ? 'bitcoin' : 'ethereum'
+  const tag = asset.id === 'btc' ? 'bitcoin' : asset.id === 'aud' ? 'forex' : 'ethereum'
   const url = `https://glassnode.com/blog/tag/${tag}`
   try {
     const res = await fetchWithTimeout(url)
@@ -178,7 +181,7 @@ async function scrapeCryptoQuant(): Promise<RawSourceData> {
 
 async function scrapeTradingViewTechnicals(asset: AssetConfig): Promise<RawSourceData> {
   const name = 'TradingView'
-  const symbol = asset.id === 'btc' ? 'BTCUSD' : asset.id === 'gold' ? 'XAUUSD' : 'ETHUSD'
+  const symbol = asset.id === 'btc' ? 'BTCUSD' : asset.id === 'gold' ? 'XAUUSD' : asset.id === 'aud' ? 'AUDUSD' : 'ETHUSD'
   const url = `https://www.tradingview.com/symbols/${symbol}/technicals/`
   try {
     const res = await fetchWithTimeout(url)
@@ -211,7 +214,7 @@ async function scrapeEtherscan(): Promise<RawSourceData> {
 
 async function scrapeBinanceOrderBook(asset: AssetConfig): Promise<RawSourceData> {
   const name = 'Binance Order Book'
-  const symbol = asset.id === 'btc' ? 'BTCUSDT' : 'ETHUSDT'
+  const symbol = asset.binanceSymbol
   const url = `https://api.binance.com/api/v3/depth?symbol=${symbol}&limit=100`
   try {
     const res = await fetchWithTimeout(url)
@@ -259,7 +262,7 @@ function calcMa(prices: number[], period: number): number {
 
 async function scrapeMultiTimeframe(asset: AssetConfig): Promise<RawSourceData> {
   const name = 'Multi-Timeframe'
-  const symbol = asset.id === 'btc' ? 'BTCUSDT' : asset.id === 'gold' ? 'XAUUSDT' : 'ETHUSDT'
+  const symbol = asset.binanceSymbol
   const url = 'https://api.binance.com/api/v3/klines'
   try {
     const [daily, fourHour, oneHour] = await Promise.all([
@@ -312,7 +315,7 @@ async function scrapeWhaleTransactions(asset: AssetConfig): Promise<RawSourceDat
     ? `https://api.etherscan.io/api?module=account&action=tokentx&address=${address}&sort=desc&limit=20`
     : 'https://api.blockchain.info/v2/eth/data/transactions?limit=10'
   try {
-    if (asset.id === 'gold') {
+    if (asset.id === 'gold' || asset.id === 'aud') {
       return { name, url, data: { largeTxns24h: 0, totalVolumeUsd: 0, accumulation: 'neutral', topWhaleNetFlow: '—', notableTxns: [] } }
     }
     const res = await fetchWithTimeout(url)
@@ -520,7 +523,7 @@ function findSmcPatterns(closes: number[], highs: number[], lows: number[], volu
 
 async function scrapeSmc(asset: AssetConfig): Promise<RawSourceData> {
   const name = 'Smart Money Concepts'
-  const symbol = asset.id === 'btc' ? 'BTCUSDT' : asset.id === 'gold' ? 'XAUUSDT' : 'ETHUSDT'
+  const symbol = asset.binanceSymbol
   const url = 'https://api.binance.com/api/v3/klines'
   try {
     const klines = await scrapeBinanceKlines(symbol, '1d')
@@ -648,7 +651,7 @@ function findElliottWaves(closes: number[], highs: number[], lows: number[]): {
 
 async function scrapeElliottWave(asset: AssetConfig): Promise<RawSourceData> {
   const name = 'Elliott Wave'
-  const symbol = asset.id === 'btc' ? 'BTCUSDT' : asset.id === 'gold' ? 'XAUUSDT' : 'ETHUSDT'
+  const symbol = asset.binanceSymbol
   const url = 'https://api.binance.com/api/v3/klines'
   try {
     const klines = await scrapeBinanceKlines(symbol, '1d')
@@ -664,7 +667,7 @@ async function scrapeElliottWave(asset: AssetConfig): Promise<RawSourceData> {
 
 export async function scrapeAllSources(asset: Asset = 'eth'): Promise<RawSourceData[]> {
   const config = getAssetConfig(asset)
-  const isCrypto = asset !== 'gold'
+  const isCrypto = asset !== 'gold' && asset !== 'aud'
 
   const scrapers: Promise<RawSourceData>[] = [
     scrapeCoinGecko(config),

@@ -1,20 +1,27 @@
-import type { RawSourceData } from './sources'
+﻿import type { RawSourceData } from './sources'
 import type { AnalysisResult, Asset, PriceData, TechnicalIndicators, OnChainData, SentimentData, FundamentalData, SourceInfo, OrderBookData, WhaleData, MacroData, TimeframeData, ElliottWaveData, SmcData, SmcOrderBlock, SmcFvg } from './types'
 import { getAssetConfig } from './types'
+
+function roundPrice(value: number): number {
+  if (Math.abs(value) < 10) {
+    return parseFloat(value.toFixed(4))
+  }
+  return Math.round(value)
+}
 
 function parsePriceData(sources: RawSourceData[], asset: Asset): PriceData {
   const config = getAssetConfig(asset)
   const coingecko = sources.find((s) => s.name === 'CoinGecko')?.data as Record<string, Record<string, number>> | undefined
   const coinData = coingecko?.[config.coinGeckoId]
-  const price = coinData?.usd ?? 1850
-  const isGold = asset === 'gold'
+  const price = coinData?.usd ?? (asset === 'aud' ? 0.7252 : asset === 'gold' ? 1850 : 1850)
+  const isFiat = asset === 'gold' || asset === 'aud'
   return {
     price,
     change24h: coinData?.usd_24h_change ?? 0,
     high24h: price * 1.04,
     low24h: price * 0.96,
-    volume24h: coinData?.usd_24h_vol ?? (isGold ? 0 : 15_000_000_000),
-    marketCap: coinData?.usd_market_cap ?? (isGold ? 0 : 220_000_000_000),
+    volume24h: coinData?.usd_24h_vol ?? (isFiat ? 0 : 15_000_000_000),
+    marketCap: coinData?.usd_market_cap ?? (isFiat ? 0 : 220_000_000_000),
   }
 }
 
@@ -27,14 +34,14 @@ function parseTechnicalIndicators(price: number, change24h: number): TechnicalIn
     ma50: price * (change24h > 0 ? 0.97 : 1.03),
     ma200: price * (change24h > 0 ? 0.92 : 1.08),
     supportLevels: [
-      Math.round(price * 0.95),
-      Math.round(price * 0.90),
-      Math.round(price * 0.85),
+      roundPrice(price * 0.95),
+      roundPrice(price * 0.90),
+      roundPrice(price * 0.85),
     ],
     resistanceLevels: [
-      Math.round(price * 1.04),
-      Math.round(price * 1.08),
-      Math.round(price * 1.15),
+      roundPrice(price * 1.04),
+      roundPrice(price * 1.08),
+      roundPrice(price * 1.15),
     ],
     trend: change24h > 2 ? 'bullish' : change24h < -2 ? 'bearish' : 'neutral',
   }
@@ -52,8 +59,8 @@ function parseOnChainData(sources: RawSourceData[], price: number): OnChainData 
     totalStaked: 34_500_000,
     exchangeReserve: 19_200_000,
     liquidationLevels: {
-      long: Math.round(price * 1.08),
-      short: Math.round(price * 0.92),
+      long: roundPrice(price * 1.08),
+      short: roundPrice(price * 0.92),
     },
   }
 }
@@ -123,7 +130,7 @@ function parseWhaleData(sources: RawSourceData[]): WhaleData {
     largeTxns24h: (w?.largeTxns24h as number) ?? 0,
     totalVolumeUsd: (w?.totalVolumeUsd as number) ?? 0,
     accumulation: (w?.accumulation as WhaleData['accumulation']) ?? 'neutral',
-    topWhaleNetFlow: (w?.topWhaleNetFlow as string) ?? '—',
+    topWhaleNetFlow: (w?.topWhaleNetFlow as string) ?? 'â€”',
     notableTxns: (w?.notableTxns as WhaleData['notableTxns']) ?? [],
   }
 }
@@ -163,51 +170,51 @@ function parseElliottWaveData(price: number, change24h: number, trend: string): 
   if (absChange < 1) {
     ewTrend = 'neutral'
     currentWave = 0
-    waveCount = 'Ondas no claras — baj\u00EDsima volatilidad'
+    waveCount = 'Ondas no claras â€” baj\u00EDsima volatilidad'
     completeness = 10
     nextTarget = price * 1.03
     invalidationLevel = price * 0.97
   } else if (isBullish) {
     if (absChange > 4) {
       currentWave = 3
-      waveCount = 'Onda 3 de (5) — Impulso alcista'
+      waveCount = 'Onda 3 de (5) â€” Impulso alcista'
       ewTrend = 'impulse'
       completeness = 55
       nextTarget = price * 1.12
       invalidationLevel = price * 0.92
     } else {
       currentWave = 1
-      waveCount = 'Posible Onda 1 de (5) — Inicio de impulso'
+      waveCount = 'Posible Onda 1 de (5) â€” Inicio de impulso'
       ewTrend = 'impulse'
       completeness = 25
       nextTarget = price * 1.08
       invalidationLevel = price * 0.95
     }
     subWaves.push(
-      { label: '1', high: price, low: Math.round(price * 0.94) },
-      { label: '2', high: Math.round(price * 0.98), low: Math.round(price * 0.93) },
-      { label: '3', high: Math.round(price * 1.06), low: Math.round(price * 0.97) },
+      { label: '1', high: price, low: roundPrice(price * 0.94) },
+      { label: '2', high: roundPrice(price * 0.98), low: roundPrice(price * 0.93) },
+      { label: '3', high: roundPrice(price * 1.06), low: roundPrice(price * 0.97) },
     )
   } else {
     if (absChange > 4) {
       currentWave = 3
-      waveCount = 'Onda C de (A)-(B)-(C) — Correcci\u00F3n activa'
+      waveCount = 'Onda C de (A)-(B)-(C) â€” Correcci\u00F3n activa'
       ewTrend = 'corrective'
       completeness = 65
       nextTarget = price * 0.88
       invalidationLevel = price * 1.05
     } else {
       currentWave = -1
-      waveCount = 'Posible Onda A de correcci\u00F3n — Retroceso'
+      waveCount = 'Posible Onda A de correcci\u00F3n â€” Retroceso'
       ewTrend = 'corrective'
       completeness = 35
       nextTarget = price * 0.93
       invalidationLevel = price * 1.04
     }
     subWaves.push(
-      { label: 'A', high: price, low: Math.round(price * 0.95) },
-      { label: 'B', high: Math.round(price * 1.01), low: Math.round(price * 0.96) },
-      { label: 'C', high: Math.round(price * 0.97), low: Math.round(price * 0.90) },
+      { label: 'A', high: price, low: roundPrice(price * 0.95) },
+      { label: 'B', high: roundPrice(price * 1.01), low: roundPrice(price * 0.96) },
+      { label: 'C', high: roundPrice(price * 0.97), low: roundPrice(price * 0.90) },
     )
   }
 
@@ -251,14 +258,14 @@ function parseSmcData(price: number, change24h: number, trend: string, elliottWa
   if (isBullish || isRanging) {
     orderBlocks.push({
       type: 'bullish',
-      price: Math.round(price * 0.955),
+      price: roundPrice(price * 0.955),
       strength: Math.abs(change24h) > 2 ? 'strong' : 'moderate',
       touched: false,
     })
     fvgs.push({
       type: 'bullish',
-      upper: Math.round(price * 1.02),
-      lower: Math.round(price * 0.985),
+      upper: roundPrice(price * 1.02),
+      lower: roundPrice(price * 0.985),
       filled: false,
     })
   }
@@ -266,20 +273,20 @@ function parseSmcData(price: number, change24h: number, trend: string, elliottWa
   if (!isBullish || isRanging) {
     orderBlocks.push({
       type: 'bearish',
-      price: Math.round(price * 1.045),
+      price: roundPrice(price * 1.045),
       strength: !isBullish && Math.abs(change24h) > 2 ? 'strong' : 'moderate',
       touched: isRanging,
     })
     fvgs.push({
       type: 'bearish',
-      upper: Math.round(price * 1.015),
-      lower: Math.round(price * 0.98),
+      upper: roundPrice(price * 1.015),
+      lower: roundPrice(price * 0.98),
       filled: isRanging,
     })
   }
 
-  const liquidityAbove = Math.round(price * (1 + (0.03 + Math.abs(change24h) / 200)))
-  const liquidityBelow = Math.round(price * (1 - (0.03 + Math.abs(change24h) / 200)))
+  const liquidityAbove = roundPrice(price * (1 + (0.03 + Math.abs(change24h) / 200)))
+  const liquidityBelow = roundPrice(price * (1 - (0.03 + Math.abs(change24h) / 200)))
 
   return {
     marketStructure,
@@ -301,13 +308,13 @@ function buildSmcDescription(
   if (structure === 'uptrend') {
     desc = `Estructura de mercado alcista. `
     if (bos) desc += `Se confirm\u00F3 un BOS (Break of Structure) alcista. `
-    if (shift) desc += `Posible cambio de estructura (MSS) detectado — el smart money estar\u00EDa acumulando. `
+    if (shift) desc += `Posible cambio de estructura (MSS) detectado â€” el smart money estar\u00EDa acumulando. `
     desc += `Liquidez de stop-losses por encima en $${liqAbove.toLocaleString()}. `
     desc += `Buscar order blocks alcistas cerca de $${(price * 0.95).toLocaleString()} para entradas largas.`
   } else if (structure === 'downtrend') {
     desc = `Estructura de mercado bajista. `
     if (bos) desc += `BOS bajista confirmado. `
-    if (shift) desc += `Posible MSS bajista — smart money distribuyendo. `
+    if (shift) desc += `Posible MSS bajista â€” smart money distribuyendo. `
     desc += `Liquidez por debajo en $${liqBelow.toLocaleString()}. `
     desc += `Buscar FVG o retest de OB bajista para entradas cortas.`
   } else {
@@ -317,7 +324,7 @@ function buildSmcDescription(
   }
 
   if (ew.trend === 'impulse') {
-    desc += ` El conteo de Elliott coincide con estructura impulsiva — refuerza la tesis direccional.`
+    desc += ` El conteo de Elliott coincide con estructura impulsiva â€” refuerza la tesis direccional.`
   } else if (ew.trend === 'corrective' && structure !== 'ranging') {
     desc += ` La correcci\u00F3n de Elliott podr\u00EDa estar cazando liquidez antes del siguiente movimiento direccional.`
   }
@@ -380,33 +387,33 @@ function buildVerdict(
     longTerm = 'buy'
     confidence = Math.min(85, 50 + netScore * 8)
     summary = 'The market structure is strongly bullish. Technical indicators align with positive on-chain flows and favorable sentiment. This is a good entry point for both short and long term.'
-    stopLoss = Math.round(price * 0.93)
-    takeProfitShort = Math.round(price * 1.12)
-    takeProfitLong = Math.round(price * 1.35)
+    stopLoss = roundPrice(price * 0.93)
+    takeProfitShort = roundPrice(price * 1.12)
+    takeProfitLong = roundPrice(price * 1.35)
   } else if (netScore >= 1) {
     shortTerm = 'hold'
     longTerm = 'buy'
     confidence = Math.min(70, 40 + netScore * 8)
     summary = 'Mixed signals overall. The short-term picture is uncertain but the long-term fundamentals remain intact. Consider waiting for confirmation before entering, or DCA into a position.'
-    stopLoss = Math.round(price * 0.92)
-    takeProfitShort = Math.round(price * 1.08)
-    takeProfitLong = Math.round(price * 1.25)
+    stopLoss = roundPrice(price * 0.92)
+    takeProfitShort = roundPrice(price * 1.08)
+    takeProfitLong = roundPrice(price * 1.25)
   } else if (netScore >= -2) {
     shortTerm = 'hold'
     longTerm = 'hold'
     confidence = Math.min(60, 40 + Math.abs(netScore) * 5)
     summary = 'The market is in a neutral zone with conflicting signals. High funding rates and weak technical structure suggest caution. The best strategy is to wait for a clearer setup before acting.'
-    stopLoss = Math.round(price * 0.90)
-    takeProfitShort = Math.round(price * 1.05)
-    takeProfitLong = Math.round(price * 1.15)
+    stopLoss = roundPrice(price * 0.90)
+    takeProfitShort = roundPrice(price * 1.05)
+    takeProfitLong = roundPrice(price * 1.15)
   } else {
     shortTerm = 'sell'
     longTerm = 'hold'
     confidence = Math.min(80, 50 + Math.abs(netScore) * 7)
     summary = 'Short-term risks are elevated. Weak technical structure, high funding rates (crowded longs), and bearish sentiment create a dangerous setup. Avoid buying into weakness. If you hold, consider tight stops. For long-term investors, wait for confirmation of support before adding.'
-    stopLoss = Math.round(price * 1.05)
-    takeProfitShort = Math.round(price * 0.95)
-    takeProfitLong = Math.round(price * 1.10)
+    stopLoss = roundPrice(price * 1.05)
+    takeProfitShort = roundPrice(price * 0.95)
+    takeProfitLong = roundPrice(price * 1.10)
   }
 
   if (sentiment.fearGreedIndex < 20) {
@@ -466,15 +473,17 @@ export function analyze(sources: RawSourceData[], asset: Asset = 'eth'): Analysi
     sources: sourceInfoList,
     scenarios: {
       bearish: {
-        target: Math.round(priceData.price * 0.9),
+        target: roundPrice(priceData.price * 0.9),
         trigger: `Losing support at $${technical.supportLevels[0].toLocaleString()}`,
         probability: 45,
       },
       bullish: {
-        target: Math.round(priceData.price * 1.15),
+        target: roundPrice(priceData.price * 1.15),
         trigger: `Breaking resistance at $${technical.resistanceLevels[0].toLocaleString()}`,
         probability: 55,
       },
     },
   }
 }
+
+

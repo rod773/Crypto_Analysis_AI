@@ -1,4 +1,4 @@
-import type { AnalysisResult, Asset, SmcOrderBlock, SmcFvg } from './types'
+﻿import type { AnalysisResult, Asset, SmcOrderBlock, SmcFvg } from './types'
 import { getAssetConfig } from './types'
 
 const cache = new Map<string, { data: unknown; expiry: number }>()
@@ -12,6 +12,13 @@ function getCached<T>(key: string): T | undefined {
 
 function setCache<T>(key: string, data: T, ttlMs: number): void {
   cache.set(key, { data, expiry: Date.now() + ttlMs })
+}
+
+function roundPrice(value: number): number {
+  if (Math.abs(value) < 10) {
+    return parseFloat(value.toFixed(4))
+  }
+  return Math.round(value)
 }
 
 async function fetchJson(url: string, timeoutMs = 10000): Promise<unknown> {
@@ -58,7 +65,7 @@ function findSmcPatterns(closes: number[], highs: number[], lows: number[], volu
   const defaultResult = {
     marketStructure: 'ranging' as const, structureShift: false, lastBos: null as 'bullish' | 'bearish' | null,
     orderBlocks: [] as SmcOrderBlock[], fvgs: [] as SmcFvg[], liquidityAbove: 0, liquidityBelow: 0,
-    description: 'Datos insuficientes para análisis SMC',
+    description: 'Datos insuficientes para anÃ¡lisis SMC',
   }
   if (n < 20) return defaultResult
 
@@ -114,20 +121,20 @@ function findSmcPatterns(closes: number[], highs: number[], lows: number[], volu
     marketStructure = 'uptrend'; lastBos = 'bullish'
     const lastPivot = filtered[filtered.length - 1]; const prevHighPivot = [...filtered].reverse().find((p) => p.type === 'high' && p !== lastPivot)
     if (lastPivot && prevHighPivot && lastPivot.type === 'high' && lastPivot.price > prevHighPivot.price) structureShift = true
-    description = 'Estructura alcista: máximos y mínimos crecientes. '
+    description = 'Estructura alcista: mÃ¡ximos y mÃ­nimos crecientes. '
     description += orderBlocks.filter((ob) => ob.type === 'bullish').length > 0
-      ? 'Zonas de orden alcistas identificadas cerca de los mínimos del movimiento.' : 'Operar con sesgo alcista, buscar retrocesos a OB alcistas.'
+      ? 'Zonas de orden alcistas identificadas cerca de los mÃ­nimos del movimiento.' : 'Operar con sesgo alcista, buscar retrocesos a OB alcistas.'
   } else if (lowerLows.length >= 2 && higherHighs.length < 2) {
     marketStructure = 'downtrend'; lastBos = 'bearish'
     const lastPivot = filtered[filtered.length - 1]; const prevLowPivot = [...filtered].reverse().find((p) => p.type === 'low' && p !== lastPivot)
     if (lastPivot && prevLowPivot && lastPivot.type === 'low' && lastPivot.price < prevLowPivot.price) structureShift = true
-    description = 'Estructura bajista: máximos y mínimos decrecientes. '
+    description = 'Estructura bajista: mÃ¡ximos y mÃ­nimos decrecientes. '
     description += orderBlocks.filter((ob) => ob.type === 'bearish').length > 0
       ? 'Zonas de orden bajistas identificadas cerca de los techos del movimiento.' : 'Evitar compras, buscar reacciones en OB bajistas.'
   } else {
     marketStructure = 'ranging'
-    description = 'Estructura lateral sin dirección clara. '
-    description += fvgs.length > 0 ? 'Operar los FVGs como soporte/resistencia intradía.' : 'Esperar ruptura de estructura para tomar dirección.'
+    description = 'Estructura lateral sin direcciÃ³n clara. '
+    description += fvgs.length > 0 ? 'Operar los FVGs como soporte/resistencia intradÃ­a.' : 'Esperar ruptura de estructura para tomar direcciÃ³n.'
   }
 
   const allHighs = filtered.filter((p) => p.type === 'high').map((p) => p.price)
@@ -147,7 +154,7 @@ function findElliottWaves(closes: number[], highs: number[], lows: number[]) {
   if (n < 30) return {
     waveCount: 'Insufficient data', currentWave: 0, trend: 'neutral' as const,
     completeness: 0, nextTarget: 0, invalidationLevel: 0, subWaves: [] as { label: string; high: number; low: number }[],
-    description: 'Se necesitan más datos para el análisis de ondas Elliott',
+    description: 'Se necesitan mÃ¡s datos para el anÃ¡lisis de ondas Elliott',
   }
 
   const pivots: { index: number; price: number; type: 'high' | 'low' }[] = []
@@ -178,7 +185,7 @@ function findElliottWaves(closes: number[], highs: number[], lows: number[]) {
   let waveLabel: string; let nextTarget: number; let invalidationLevel: number; let completeness: number; let description: string
 
   const subWaves = filtered.slice(-8).map((p, i) => ({
-    label: `P${i + 1} ${p.type === 'high' ? '▲' : '▼'}`,
+    label: `P${i + 1} ${p.type === 'high' ? 'â–²' : 'â–¼'}`,
     high: p.price, low: p.price,
   }))
 
@@ -190,13 +197,13 @@ function findElliottWaves(closes: number[], highs: number[], lows: number[]) {
     invalidationLevel = lastPivot?.type === 'high' ? (prevPivot?.price ?? lastPrice * 0.92) : lastPrice * 0.92
     completeness = Math.round((waveCount / 5) * 100)
     description = currentWave <= 3
-      ? `Onda alcista impulsiva en desarrollo. La onda ${currentWave} está activa con objetivo en $${Math.round(nextTarget).toLocaleString()}.`
+      ? `Onda alcista impulsiva en desarrollo. La onda ${currentWave} estÃ¡ activa con objetivo en $${Math.round(nextTarget).toLocaleString()}.`
       : currentWave <= 5
-        ? `Aproximándose al final del impulso alcista (onda ${currentWave} de 5). Zona de toma de ganancias.`
-        : 'Estructura impulsiva completa. Esperar corrección A-B-C.'
+        ? `AproximÃ¡ndose al final del impulso alcista (onda ${currentWave} de 5). Zona de toma de ganancias.`
+        : 'Estructura impulsiva completa. Esperar correcciÃ³n A-B-C.'
   } else if (totalMove < -3 && waveCount <= 6) {
     trend = 'impulse'; currentWave = Math.min(waveCount + 1, 5)
-    waveLabel = `Onda ${currentWave} de (5) ▼`
+    waveLabel = `Onda ${currentWave} de (5) â–¼`
     const avgWave = Math.abs(totalMove) / Math.max(waveCount, 1)
     nextTarget = lastPrice * (1 - avgWave / 100 * 0.5)
     invalidationLevel = lastPivot?.type === 'low' ? (prevPivot?.price ?? lastPrice * 1.08) : lastPrice * 1.08
@@ -209,7 +216,7 @@ function findElliottWaves(closes: number[], highs: number[], lows: number[]) {
     nextTarget = totalMove > 0 ? lastPrice * (1 + Math.abs(totalMove) / 100 * 0.3) : lastPrice * (1 - Math.abs(totalMove) / 100 * 0.3)
     invalidationLevel = lastPrice * (totalMove > 0 ? 0.95 : 1.05)
     completeness = Math.round(((waveCount % 3) / 3) * 100)
-    description = `Estructura correctiva A-B-C en desarrollo. ${abcWave === 1 ? 'Onda A corrigiendo el movimiento previo.' : abcWave === 2 ? 'Onda B — rebote temporal dentro de la corrección.' : 'Onda C — etapa final de la corrección.'}`
+    description = `Estructura correctiva A-B-C en desarrollo. ${abcWave === 1 ? 'Onda A corrigiendo el movimiento previo.' : abcWave === 2 ? 'Onda B â€” rebote temporal dentro de la correcciÃ³n.' : 'Onda C â€” etapa final de la correcciÃ³n.'}`
   }
 
   return {
@@ -222,15 +229,24 @@ function findElliottWaves(closes: number[], highs: number[], lows: number[]) {
 export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
   const ac = getAssetConfig(asset)
   const symbol = ac.binanceSymbol
-  const isCrypto = asset !== 'gold'
+  const isCrypto = asset !== 'gold' && asset !== 'aud'
   const now = new Date().toISOString()
 
   const cgCacheKey = `coingecko:${ac.coinGeckoId}`
-  let price = 1850; let change24h = 0; let marketCap = 0; let volume24h = 0
-  const cachedCg = getCached<Record<string, Record<string, number>>>(cgCacheKey)
-  if (cachedCg) {
-    const coin = cachedCg?.[ac.coinGeckoId]
-    if (coin) { price = coin.usd ?? price; change24h = coin.usd_24h_change ?? 0; marketCap = coin.usd_market_cap ?? 0; volume24h = coin.usd_24h_vol ?? 0 }
+  let price = 1850; let change24h = 0; let marketCap = 0; let volume24h = 0; let cachedCg: Record<string, Record<string, number>> | undefined = undefined
+  if (asset === 'aud' || asset === 'gold') {
+    try {
+      const binancePrice = await fetchJson(`https://api.binance.com/api/v3/ticker/24hr?symbol=${ac.binanceSymbol}`) as { lastPrice: string; priceChangePercent: string; quoteVolume: string }
+      price = parseFloat(binancePrice.lastPrice)
+      change24h = parseFloat(binancePrice.priceChangePercent)
+      volume24h = parseFloat(binancePrice.quoteVolume)
+    } catch {}
+  } else {
+    cachedCg = getCached<Record<string, Record<string, number>>>(cgCacheKey)
+    if (cachedCg) {
+      const coin = cachedCg?.[ac.coinGeckoId]
+      if (coin) { price = coin.usd ?? price; change24h = coin.usd_24h_change ?? 0; marketCap = coin.usd_market_cap ?? 0; volume24h = coin.usd_24h_vol ?? 0 }
+    }
   }
 
   let fearGreed = 25; let fearGreedLabel = 'Fear'
@@ -239,7 +255,7 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
 
   const results = await Promise.allSettled([
     (async () => {
-      if (cachedCg) return
+      if (cachedCg || asset === 'aud' || asset === 'gold') return
       const cgData = await fetchJson(
         `https://api.coingecko.com/api/v3/simple/price?ids=${ac.coinGeckoId}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`
       ) as Record<string, Record<string, number>>
@@ -263,7 +279,7 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
 
   await Promise.allSettled(results)
 
-  const high24h = Math.round(price * 1.04); const low24h = Math.round(price * 0.96)
+  const high24h = roundPrice(price * 1.04); const low24h = roundPrice(price * 0.96)
   const trend = change24h > 2 ? 'bullish' : change24h < -2 ? 'bearish' : 'neutral'
 
   const dailyCloses = klines1d.map((k) => k.close)
@@ -296,8 +312,8 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
   const fourHourMa50 = fourHourCloses.length > 0 ? calcMa(fourHourCloses, Math.min(50, fourHourCloses.length)) : price
   const oneHourMa50 = oneHourCloses.length > 0 ? calcMa(oneHourCloses, Math.min(50, oneHourCloses.length)) : price
 
-  const supportLow = Math.round(price * 0.95); const supportMid = Math.round(price * 0.90); const supportHigh = Math.round(price * 0.85)
-  const resistanceLow = Math.round(price * 1.04); const resistanceMid = Math.round(price * 1.08); const resistanceHigh = Math.round(price * 1.15)
+  const supportLow = roundPrice(price * 0.95); const supportMid = roundPrice(price * 0.90); const supportHigh = roundPrice(price * 0.85)
+  const resistanceLow = roundPrice(price * 1.04); const resistanceMid = roundPrice(price * 1.08); const resistanceHigh = roundPrice(price * 1.15)
 
   const clampedRsi = Math.max(15, Math.min(85, dailyRsi))
 
@@ -324,8 +340,8 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
   // Build on-chain estimates
   const fundingRate = Math.round((0.005 + Math.random() * 0.015) * 10000) / 10000
   const exchangeNetFlow = fundingRate > 0.01 ? 'outflows (-)' : 'inflows (+)'
-  const stakingYield = asset === 'eth' ? 3.2 : asset === 'btc' ? 0 : 0
-  const totalStaked = asset === 'eth' ? 34_500_000 : asset === 'btc' ? 0 : 0
+  const stakingYield = asset === 'eth' ? 3.2 : 0
+  const totalStaked = asset === 'eth' ? 34_500_000 : 0
   const exchangeReserve = Math.round(price * 120_000_000 * 0.08)
 
   // Whale estimate from volume
@@ -348,22 +364,22 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
     shortTerm = 'buy'; longTerm = 'buy'
     confidence = Math.min(85, 50 + verdictNetScore * 8)
     summary = 'The market structure is strongly bullish. Technical indicators align with positive on-chain flows and favorable sentiment. This is a good entry point for both short and long term.'
-    stopLoss = Math.round(price * 0.93); takeProfitShort = Math.round(price * 1.12); takeProfitLong = Math.round(price * 1.35)
+    stopLoss = roundPrice(price * 0.93); takeProfitShort = roundPrice(price * 1.12); takeProfitLong = roundPrice(price * 1.35)
   } else if (verdictNetScore >= 1) {
     shortTerm = 'hold'; longTerm = 'buy'
     confidence = Math.min(70, 40 + verdictNetScore * 8)
     summary = 'Mixed signals overall. The short-term picture is uncertain but the long-term fundamentals remain intact. Consider waiting for confirmation before entering, or DCA into a position.'
-    stopLoss = Math.round(price * 0.92); takeProfitShort = Math.round(price * 1.08); takeProfitLong = Math.round(price * 1.25)
+    stopLoss = roundPrice(price * 0.92); takeProfitShort = roundPrice(price * 1.08); takeProfitLong = roundPrice(price * 1.25)
   } else if (verdictNetScore >= -2) {
     shortTerm = 'hold'; longTerm = 'hold'
     confidence = Math.min(60, 40 + Math.abs(verdictNetScore) * 5)
     summary = 'The market is in a neutral zone with conflicting signals. High funding rates and weak technical structure suggest caution. The best strategy is to wait for a clearer setup before acting.'
-    stopLoss = Math.round(price * 0.90); takeProfitShort = Math.round(price * 1.05); takeProfitLong = Math.round(price * 1.15)
+    stopLoss = roundPrice(price * 0.90); takeProfitShort = roundPrice(price * 1.05); takeProfitLong = roundPrice(price * 1.15)
   } else {
     shortTerm = 'sell'; longTerm = 'hold'
     confidence = Math.min(80, 50 + Math.abs(verdictNetScore) * 7)
     summary = 'Short-term risks are elevated. Weak technical structure, high funding rates (crowded longs), and bearish sentiment create a dangerous setup. Avoid buying into weakness. If you hold, consider tight stops. For long-term investors, wait for confirmation of support before adding.'
-    stopLoss = Math.round(price * 1.05); takeProfitShort = Math.round(price * 0.95); takeProfitLong = Math.round(price * 1.10)
+    stopLoss = roundPrice(price * 1.05); takeProfitShort = roundPrice(price * 0.95); takeProfitLong = roundPrice(price * 1.10)
   }
 
   if (fearGreed < 20) {
@@ -398,8 +414,8 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
       totalStaked,
       exchangeReserve,
       liquidationLevels: {
-        long: Math.round(price * 1.08),
-        short: Math.round(price * 0.92),
+        long: roundPrice(price * 1.08),
+        short: roundPrice(price * 0.92),
       },
     },
     sentiment: {
@@ -410,11 +426,11 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
       socialSentiment: fearGreed < 30 ? 'bearish' : fearGreed > 70 ? 'bullish' : 'neutral',
     },
     fundamental: {
-      defiTvl: asset === 'eth' ? 45_800_000_000 : asset === 'btc' ? 0 : 0,
+      defiTvl: asset === 'eth' ? 45_800_000_000 : 0,
       stablecoinSupply: 82_000_000_000,
-      networkRevenue: asset === 'eth' ? 2_400_000_000 : asset === 'btc' ? 0 : 0,
-      activeAddresses: asset === 'eth' ? 520_000 : asset === 'btc' ? 800_000 : 0,
-      transactionCount: asset === 'eth' ? 1_200_000 : asset === 'btc' ? 300_000 : 0,
+      networkRevenue: asset === 'eth' ? 2_400_000_000 : 0,
+      activeAddresses: asset === 'eth' ? 520_000 : 0,
+      transactionCount: asset === 'eth' ? 1_200_000 : 0,
     },
     orderBook: {
       bidDepth: Math.round(bidDepth),
@@ -433,7 +449,7 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
     },
     macro: {
       upcomingEvents: [],
-      marketContext: 'Análisis en tiempo real desde fuentes públicas.',
+      marketContext: 'AnÃ¡lisis en tiempo real desde fuentes pÃºblicas.',
       riskOn: fearGreed > 40,
     },
     timeframe: {
@@ -458,3 +474,4 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
     },
   }
 }
+

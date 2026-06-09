@@ -112,7 +112,6 @@ function PriceDisplay({ price, change }: { price: number; change: number }) {
           textContent: price,
           duration: 1.2,
           ease: 'power2.out',
-          snap: { textContent: 1 },
         }
       )
     }, priceRef.current)
@@ -237,7 +236,7 @@ function TechnicalIndicators({ tech }: { tech: AnalysisResult['technical'] }) {
 }
 
 function OnChainSummary({ onChain, asset }: { onChain: AnalysisResult['onChain']; asset: Asset }) {
-  const symbol = asset === 'btc' ? 'BTC' : asset === 'gold' ? 'XAU' : 'ETH'
+  const symbol = asset === 'btc' ? 'BTC' : asset === 'gold' ? 'XAU' : asset === 'aud' ? 'AUD' : 'ETH'
   return (
     <motion.div
       variants={containerVariants}
@@ -290,7 +289,7 @@ function SourcesList({ sources }: { sources: AnalysisResult['sources'] }) {
 }
 
 function OrderBookSummary({ orderBook, asset }: { orderBook: AnalysisResult['orderBook']; asset: Asset }) {
-  const symbol = asset === 'btc' ? 'BTC' : asset === 'gold' ? 'XAU' : 'ETH'
+  const symbol = asset === 'btc' ? 'BTC' : asset === 'gold' ? 'XAU' : asset === 'aud' ? 'AUD' : 'ETH'
   return (
     <motion.div
       variants={containerVariants}
@@ -621,7 +620,7 @@ export function ChatMessage({ role, content, analysis, loading }: ChatMessagePro
               transition={{ duration: 0.3 }}
               className="flex items-center justify-between"
             >
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{`Análisis de ${analysis.asset === 'btc' ? 'Bitcoin' : analysis.asset === 'gold' ? 'Gold' : 'Ethereum'}`}</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{`Análisis de ${analysis.asset === 'btc' ? 'Bitcoin' : analysis.asset === 'gold' ? 'Gold' : analysis.asset === 'aud' ? 'AUD' : 'Ethereum'}`}</h3>
               <span className="text-xs text-muted-foreground/50 font-mono">
                 {new Date(analysis.timestamp).toLocaleTimeString()}
               </span>

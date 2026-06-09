@@ -6,8 +6,8 @@
   - APIs/otros: passthrough (sin interceptar)
 */
 
-const CACHE_STATIC = "crypto-ai-static-v1";
-const CACHE_PAGES = "crypto-ai-pages-v1";
+const CACHE_STATIC = "crypto-ai-static-v2";
+const CACHE_PAGES = "crypto-ai-pages-v2";
 
 const CORE_ASSETS = [
   "/",
@@ -86,15 +86,12 @@ self.addEventListener("fetch", (event) => {
 /* ---------- HANDLERS ---------- */
 
 async function handleNavigation(request) {
-  const cache = await caches.open(CACHE_PAGES);
-
+  // Always try network first for pages (don't cache HTML)
   try {
     const networkResponse = await fetch(request);
-    if (networkResponse && networkResponse.ok) {
-      cache.put(request, networkResponse.clone());
-    }
     return networkResponse;
   } catch (err) {
+    const cache = await caches.open(CACHE_PAGES);
     const cached = await cache.match(request);
     if (cached) return cached;
 

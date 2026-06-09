@@ -132,7 +132,7 @@ export default function Home() {
     { label: `¿Debería comprar ${assetConfig.symbol} hoy?`, icon: '📈' },
     { label: `¿Cuál es el mejor momento para vender?`, icon: '⏰' },
     { label: `Análisis técnico de ${assetConfig.name}`, icon: '📊' },
-    { label: asset === 'gold' ? '¿Qué dicen los bancos centrales?' : '¿Qué dicen las ballenas?', icon: asset === 'gold' ? '🏦' : '🐋' },
+    { label: asset === 'gold' || asset === 'aud' ? '¿Qué dicen los bancos centrales?' : '¿Qué dicen las ballenas?', icon: asset === 'gold' || asset === 'aud' ? '🏦' : '🐋' },
   ]
 
   const headerRef = useRef<HTMLElement>(null)
@@ -155,7 +155,7 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="relative flex flex-col h-screen max-w-4xl mx-auto w-full">
+    <div className="relative flex flex-col h-screen max-w-4xl mx-auto w-full" suppressHydrationWarning>
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--glow-subtle)_0%,_transparent_60%)]" />
 
       <header ref={headerRef} className="relative shrink-0 border-b border-border/40 bg-background/60 backdrop-blur-xl">
@@ -170,12 +170,10 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <div className="flex gap-1 rounded-lg border border-border/30 bg-card/40 p-0.5 backdrop-blur-sm">
               {ASSETS.map((a) => (
-                <motion.button
+                <button
                   key={a.id}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                   onClick={() => switchAsset(a.id)}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all ${
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all hover:scale-105 active:scale-95 ${
                     asset === a.id
                       ? 'bg-cyber/20 text-cyber shadow-sm shadow-cyber/10'
                       : 'text-muted-foreground hover:text-foreground'
@@ -183,7 +181,7 @@ export default function Home() {
                 >
                   <span className="text-sm">{a.icon}</span>
                   <span className="hidden sm:inline">{a.symbol}</span>
-                </motion.button>
+                </button>
               ))}
             </div>
             <div className="flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 ring-1 ring-green-500/20">
@@ -191,7 +189,7 @@ export default function Home() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
               </span>
-              <span className="text-[11px] font-medium text-green-400">{asset === 'gold' ? '5+ fuentes' : '10+ fuentes'}</span>
+              <span className="text-[11px] font-medium text-green-400">{(asset === 'gold' || asset === 'aud') ? '5+ fuentes' : '10+ fuentes'}</span>
             </div>
           </div>
         </div>

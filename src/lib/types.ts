@@ -80,7 +80,7 @@ export interface TimeframeData {
   dominantTrend: 'bullish' | 'bearish' | 'neutral'
 }
 
-export type Asset = 'eth' | 'btc' | 'gold'
+export type Asset = 'eth' | 'btc' | 'gold' | 'aud'
 
 export interface AssetConfig {
   id: Asset
@@ -96,6 +96,7 @@ export const ASSETS: AssetConfig[] = [
   { id: 'eth', name: 'Ethereum', symbol: 'ETH', coinGeckoId: 'ethereum', binanceSymbol: 'ETHUSDT', cmcSlug: 'ethereum', icon: '⟠' },
   { id: 'btc', name: 'Bitcoin', symbol: 'BTC', coinGeckoId: 'bitcoin', binanceSymbol: 'BTCUSDT', cmcSlug: 'bitcoin', icon: '₿' },
   { id: 'gold', name: 'Gold', symbol: 'XAU', coinGeckoId: 'tether-gold', binanceSymbol: 'XAUUSDT', cmcSlug: 'gold', icon: '👑' },
+  { id: 'aud', name: 'AUD', symbol: 'AUD', coinGeckoId: 'australian-dollar', binanceSymbol: 'AUDUSDT', cmcSlug: 'australian-dollar', icon: '🇦🇺' },
 ]
 
 export function getAssetConfig(id: Asset): AssetConfig {
