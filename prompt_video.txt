@@ -1,0 +1,84 @@
+Create a 60-90 second animated explainer video in Spanish about a crypto technical analysis engine. The video should have a dark, cyberpunk aesthetic with neon blue (#82aaff) and purple (#c792ea) accents on a dark background (#011627). Use smooth motion graphics, data visualization animations, and a futuristic tech feel.
+
+Structure and visual script:
+
+[0-5s — INTRO]
+Title: "Crypto Analysis AI — Motor de Análisis Técnico"
+Show a hexagonal logo with candlestick bars inside, glowing with a pulsing ring. Subtitle: "6 Marcos de Análisis Combinados en un Solo Score"
+
+[5-15s — 1. TECHNICAL INDICATORS]
+Title: "Análisis Técnico Clásico"
+Animate a price chart with moving candles (green and red). Show floating labels:
+- RSI (scale 0-100 with needle moving 15-85)
+- MACD (bullish/bearish crossover lines)
+- MA50 / MA200 (two moving average lines crossing price)
+- 3 Support levels (horizontal lines below price: S1, S2, S3)
+- 3 Resistance levels (horizontal lines above: R1, R2, R3)
+Visual: candle chart with indicators appearing one by one, connected to the price line.
+
+[15-25s — 2. ELLIOTT WAVES]
+Title: "Ondas de Elliott"
+Show a wave pattern with numbered waves 1-2-3-4-5 in green (impulse) and A-B-C in red (corrective). Animate arrows showing:
+- Wave 3 as the longest (strong impulse)
+- "Completitud: 55%" progress bar
+- Target price line and invalidation level line
+Visual: zigzag wave pattern drawing itself left to right across an oscilloscope-style grid.
+
+[25-35s — 3. SMART MONEY CONCEPTS]  
+Title: "Smart Money Concepts (SMC)"
+Show a candlestick chart with:
+- Market Structure labels: Uptrend (green arrow up), Downtrend (red arrow down), Ranging (horizontal line)
+- BOS (Break of Structure) marker — price breaking through a trendline
+- MSS (Market Structure Shift) — direction change indicator
+- Order Blocks (green/red rectangular zones on price)
+- FVGs (Fair Value Gaps) — highlighted gaps between candles
+- Liquidity pools (circles above/below price showing stop-loss clusters)
+Visual: institutional-style trading chart with zones and markers appearing sequentially.
+
+[35-45s — 4. ON-CHAIN + SENTIMENT]
+Title: "Datos On-Chain y Sentimiento"
+Show two columns:
+Left — On-Chain:
+- Funding Rate gauge (needle moving from green to red zone)
+- Exchange Flow arrows (inflow red arrows, outflow green arrows)
+- Staking yield percentage
+- Liquidation levels (long/short lines on price)
+Right — Sentiment:
+- Fear & Greed Index (meter from 0-100, pointer in "Fear" zone)
+- News headlines with sentiment badges (positive green, negative red, neutral gray)
+- Social sentiment indicator (bearish/neutral/bullish)
+Visual: dashboard-style split panel with animated gauges and counters.
+
+[45-52s — 5. ORDER BOOK + WHALES]
+Title: "Libro de Órdenes y Ballenas"
+Show:
+- Bid/Ask depth chart (green buy wall, red sell wall)
+- Bid/Ask ratio number floating above
+- Whale transaction markers: large dots on a blockchain-style network
+- Accumulation pattern: stacking coins (accumulating) or scattering (distributing)
+Visual: order book depth chart morphing into a whale swimming through a sea of coins.
+
+[52-60s — 6. VERDICT ALGORITHM]
+Title: "Veredicto — Sistema de Scoring"
+Show a balance scale or scoreboard with two columns:
+- Bearish score (red) vs Bullish score (green)
+- Each factor lights up: Technical trend (+3), RSI (+2), Funding rate (+3), SMC structure (+2), Elliott Waves (+3)
+- Net score counter spinning to final value: "+12"
+- Final verdict panel slides in: "BUY" (green) with confidence 75%, Stop Loss and Take Profit levels displayed below
+Visual: scoreboard with flipping numbers like a stock ticker, culminating in a large verdict badge.
+
+[60-65s — CLOSING]
+Title: "Crypto Analysis AI"
+Show the assets: ETH, BTC, XAU, AUD with their icons floating in a circle around the logo.
+Subtitle: "Análisis en Tiempo Real — Múltiples Fuentes — Recomendaciones Accionables"
+Visual: camera pulls back, logo center frame, assets orbit around it, fade to dark.
+
+Technical requirements:
+- 1920x1080, 30fps
+- Dark theme (#011627 background)
+- Neon colors: primary #82aaff, secondary #c792ea, green #22da6e, red #ef5350, yellow #ffeb95
+- Smooth transitions (slide, fade, morph)
+- Clean sans-serif font (similar to Inter)
+- No voiceover needed, background synthwave/chill electronic music
+- Text overlays in Spanish throughout
+- Use data visualization style (gauges, charts, scoreboards, progress bars)
