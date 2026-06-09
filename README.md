@@ -1,146 +1,203 @@
-# Crypto Analysis AI — ¿Comprar o Vender ETH?
+# Crypto Analysis AI - Multi-Framework Technical Analysis Engine
 
-Asistente inteligente que analiza Ethereum en tiempo real consultando **10+ fuentes** y te recomienda si **comprar, vender o esperar**, tanto a corto como a largo plazo.
+Intelligent assistant that analyzes crypto assets in real-time by consulting multiple data sources and advanced technical analysis frameworks. Recommends whether to **buy, sell, or hold** for both short and long term.
 
 ```bash
 yarn dev
-# Abre http://localhost:3000 y pregunta qué hacer con ETH
+# Open http://localhost:3000 and ask what to do with ETH, BTC, Gold or AUD
 ```
 
 ---
 
-## Estrategia del Proyecto
+## Project Strategy
 
-### 1. Arquitectura
+### 1. Architecture
 
 ```
-Cliente (Next.js App Router)
+Client (Next.js App Router)
   │
-  ├─ Chat UI → Preguntas en lenguaje natural
+  ├─ Chat UI → Natural language questions
   │
   └─ /api/analyze
-       ├─ scrapeAllSources() → 11 fuentes en paralelo
-       ├─ analyze()           → Motor de análisis propio
-       └─ [Opcional] IA      → GPT-4o-mini vía OpenRouter
+       ├─ scrapeAllSources() → Multiple sources in parallel
+       ├─ analyze()           → Proprietary multi-framework analysis engine
+       └─ [Optional] AI       → GPT-4o-mini via OpenRouter
 ```
 
-### 2. Fuentes de Datos (11 en total)
+### 2. Data Sources
 
-| Fuente | Tipo de Dato | Método |
-|--------|-------------|--------|
-| **CoinGecko** | Precio, volumen, market cap | API REST pública |
-| **CoinMarketCap** | Precio, cambio % | Web scraping con cheerio |
-| **Fear & Greed Index** | Sentimiento del mercado | API alternativa.me |
-| **CoinDesk** | Titulares de noticias | Web scraping |
-| **CoinTelegraph** | Titulares de noticias ETH | Web scraping |
-| **Glassnode** | Tendencias on-chain | Web scraping (blog) |
-| **CryptoQuant** | Flujos de exchange | Web scraping |
-| **TradingView** | Señales técnicas | Web scraping |
-| **Coinglass** | Funding rate, liquidaciones | API REST |
-| **DeFi Llama** | TVL de Ethereum | API REST |
-| **Etherscan** | Conteo de transacciones | Web scraping |
+| Source | Data Type | Method |
+|--------|-----------|--------|
+| **CoinGecko** | Price, volume, market cap | Public REST API |
+| **Fear & Greed Index** | Market sentiment | alternative.me API |
+| **CoinDesk** | News headlines | Web scraping |
+| **CoinTelegraph** | ETH news headlines | Web scraping |
+| **Coinglass** | Funding rate, liquidations | REST API |
+| **Binance** | Order book depth | REST API |
+| **Macro Calendar** | Economic events | REST API |
 
-Se usa `Promise.allSettled` para tolerancia a fallos: si una fuente falla (timeout, bloqueo), las demás siguen funcionando.
-
-### 3. Motor de Análisis (sin IA)
-
-El análisis se compone de 4 módulos independientes que se combinan para generar el veredicto:
-
-#### Técnico (`parseTechnicalIndicators`)
-- **RSI** aproximado a partir del cambio de precio 24h (normalizado entre 15-85)
-- **MACD** inferido del RSI
-- **MA-50 / MA-200** calculados como % del precio actual
-- **Soportes y resistencias** en 3 niveles (95%, 90%, 85% y 104%, 108%, 115%)
-- **Tendencia** (alcista/bajista/neutral) según el cambio %
-
-#### On-Chain (`parseOnChainData`)
-- **Funding rate**: detecta si es >0.005% (señal de sobreapalancamiento en longs)
-- **Flujo de exchanges**: inferido del funding rate
-- **Staking APY** y **ETH total staked** (estimaciones basadas en datos públicos)
-
-#### Sentimiento (`parseSentimentData`)
-- **Fear & Greed Index** del API de alternative.me
-- **Análisis de titulares**: clasificación positiva/negativa/neutral por palabras clave (dump, crash, rally, surge, etc.)
-- **Sentimiento social** correlacionado con el Fear & Greed
-
-#### Fundamental (`parseFundamentalData`)
-- TVL en DeFi, supply de stablecoins, revenue de red, direcciones activas, transacciones
-
-### 4. Sistema de Veredicto (`buildVerdict`)
-
-Cada módulo aporta puntos a un score **bajista** y otro **alcista**:
-
-| Factor | Puntos Bajista | Puntos Alcista |
-|--------|:---:|:---:|
-| Tendencia bajista | +3 | — |
-| Tendencia alcista | — | +3 |
-| RSI > 70 (sobrecompra) | +2 | — |
-| RSI < 30 (sobreventa) | — | +2 |
-| Funding rate alto (>0.005%) | +3 | — |
-| Funding rate bajo (<0.001%) | — | +2 |
-| Fear & Greed < 25 (miedo extremo) | +2 | — |
-| Fear & Greed > 70 (codicia extrema) | — | +2 |
-
-**Score neto** = puntos alcistas − puntos bajistas
-
-| Score | Corto Plazo | Largo Plazo | Confianza |
-|-------|:-----------:|:-----------:|:---------:|
-| ≥ 4 | **COMPRAR** | **COMPRAR** | 58-85% |
-| 1 a 3 | ESPERAR | **COMPRAR** | 48-70% |
-| −2 a 0 | ESPERAR | ESPERAR | 30-60% |
-| ≤ −3 | **VENDER** | ESPERAR | 36-80% |
-
-El veredicto incluye niveles concretos de **Stop Loss** y **Take Profit** para cada escenario.
-
-### 5. Escenarios Probabilísticos
-
-Siempre se generan dos escenarios con trigger y probabilidad:
-
-- **Bajista**: "Si pierde soporte en $X..." → objetivo $Y (probabilidad ~45%)
-- **Alcista**: "Si rompe resistencia en $X..." → objetivo $Y (probabilidad ~55%)
-
-### 6. Interfaz de Chat
-
-- Diseño tipo mensajería con scroll infinito
-- Sugerencias de preguntas al iniciar
-- Sección "Ver análisis detallado" colapsable con datos técnicos, on-chain y sentimiento
-- Indicador de fuentes consultadas (ej: "8/11 fuentes consultadas")
-
-### 7. Integración con IA (Opcional)
-
-Si se configura `OPENROUTER_API_KEY` en `.env`, el endpoint acepta `?ai=true` y añade un análisis generado por GPT-4o-mini con el prompt:
-
-> "Eres un analista de criptomonedas experto. Basado en los datos proporcionados, da una recomendación clara de COMPRAR o VENDER ETH. Responde en español, máximo 3 párrafos, con el veredicto al inicio en negrita."
+`Promise.allSettled` is used for fault tolerance: if one source fails (timeout, block), the others continue working.
 
 ---
 
-## Stack Tecnológico
+## Technical Analysis Engine
+
+The analysis is NOT traditional technical analysis calculated on historical OHLC candlestick series. It is a **hybrid system** that synthesizes multiple signals (technical, on-chain, sentiment, SMC, Elliott) into a single aggregated score to generate trading recommendations with entry, exit, and risk levels.
+
+### Analysis Modules
+
+#### 1. Classic Technical Analysis (`parseTechnicalIndicators`)
+
+Generates synthetic indicators based on 24h price change:
+
+| Indicator | Calculation |
+|-----------|-------------|
+| **RSI** | `50 + (change24h * 1.5)`, clamp 15-85 |
+| **MACD** | Bullish crossover (RSI>60), bearish (RSI<40) |
+| **MA50** | Price × 0.97 or × 1.03 depending on direction |
+| **MA200** | Price × 0.92 or × 1.08 depending on direction |
+| **Trend** | Bullish if >2%, bearish if <-2% |
+| **Supports** | Price × 0.95, 0.90, 0.85 |
+| **Resistances** | Price × 1.04, 1.08, 1.15 |
+
+> **Note:** These are synthetic indicators calculated from 24h price change, not from real historical candlestick series.
+
+#### 2. Elliott Wave Analysis (`parseElliottWaveData`)
+
+Identifies wave structure based on the magnitude of price variation:
+
+| 24h Variation | Result |
+|---------------|--------|
+| < 1% | Neutral structure - no clear pattern |
+| > 4% bullish | Wave 3 of (5) - strong bullish impulse |
+| 1-4% bullish | Possible Wave 1 - start of impulse |
+| > 4% bearish | Wave C of (A)(B)(C) - active correction |
+| 1-4% bearish | Possible Wave A - pullback |
+
+Generates price targets, invalidation levels, and projected sub-waves for each scenario.
+
+#### 3. Smart Money Concepts (SMC) (`parseSmcData`)
+
+Analyzes market structure from the smart money perspective:
+
+| Component | Description |
+|-----------|-------------|
+| **Market Structure** | Uptrend / Downtrend / Ranging |
+| **BOS** | Break of Structure - confirmed if movement > 3% |
+| **MSS** | Market Structure Shift - direction change |
+| **Order Blocks** | Accumulation/distribution zones |
+| **FVGs** | Fair Value Gaps - price gaps |
+| **Liquidity** | Dynamically calculated pools |
+
+#### 4. On-Chain Analysis (`parseOnChainData`)
+
+Extracts data from Coinglass and other sources:
+- **Funding Rate**: Futures financing rate
+- **Exchange Flows**: Inflows (+) / Outflows (-)
+- **Staking**: Yield and staked amounts
+- **Liquidation Levels**: Squeeze projections
+
+#### 5. Market Sentiment (`parseSentimentData`)
+
+Combines multiple sentiment sources:
+- **Fear & Greed Index**: Quantitative fear/greed index
+- **News NLP**: Keyword analysis (dump/crash/surge/rally) on CoinDesk and CoinTelegraph headlines
+- **Social Sentiment**: Derived from Fear & Greed Index
+
+#### 6. Order Book Analysis (`parseOrderBookData`)
+
+Uses Binance depth data to calculate:
+- Bid/Ask ratio
+- Options sentiment (Calls vs Puts)
+- Market directional flow
+
+#### 7. Whale Data (`parseWhaleData`)
+
+| Metric | Description |
+|--------|-------------|
+| Large transactions 24h | Number of large txs |
+| Total volume USD | Aggregated value moved |
+| Accumulation | Pattern: accumulating/distributing/neutral |
+| Net flow | Direction of top wallet flows |
+
+---
+
+### Verdict Algorithm (`buildVerdict`)
+
+Multi-factor scoring system with bearish and bullish weights.
+
+#### Key Weights:
+
+| Factor | Bearish Weight | Bullish Weight |
+|--------|:--------------:|:--------------:|
+| Technical trend | 3 | 3 |
+| RSI extreme | 2/-1 | 2/-1 |
+| High/low funding rate | 3 | 2 |
+| Fear & Greed | 2 | 2 |
+| Bid/Ask ratio | 2 | 2 |
+| Timeframe trend | 3/-1 | 3/-1 |
+| Elliott Waves | 3/2 | 3/-2 |
+| SMC structure | 2 | 2 |
+| BOS/MSS | 2 | 3 |
+
+#### Verdict Thresholds:
+
+| Net Score | Verdict |
+|:---------:|---------|
+| >= 4 | **BUY** (short and long term) |
+| 1 to 3 | **HOLD** short, **BUY** long |
+| -2 to 0 | **HOLD** both |
+| < -2 | **SELL** short, **HOLD** long |
+
+> If Fear & Greed Index < 20 (Extreme Fear), confidence is reduced and any **BUY** signal becomes **HOLD**, applying extreme caution.
+
+---
+
+### Probabilistic Scenarios
+
+Two scenarios are always generated with trigger and probability:
+
+- **Bearish**: "If it loses support at $X..." → target $Y (probability ~45%)
+- **Bullish**: "If it breaks resistance at $X..." → target $Y (probability ~55%)
+
+---
+
+## Supported Assets
+
+- **ETH** (Ethereum)
+- **BTC** (Bitcoin)
+- **Gold** (XAU - Tether Gold)
+- **AUD** (Australian Dollar)
+
+---
+
+## Tech Stack
 
 - **Framework**: Next.js 16 (App Router, TypeScript, Turbopack)
 - **UI**: shadcn/ui (Radix, Tailwind CSS v4)
-- **Scraping**: cheerio, fetch nativo
-- **Iconos**: lucide-react
-- **Paquetería**: Yarn
+- **Scraping**: cheerio, native fetch
+- **Icons**: lucide-react
+- **Packaging**: Yarn
 
-## Comandos
+## Commands
 
 ```bash
-yarn dev       # Desarrollo en localhost:3000
-yarn build     # Build de producción
-yarn lint      # Verificar código
+yarn dev       # Development on localhost:3000
+yarn build     # Production build
+yarn lint      # Code verification
 ```
 
-## Variables de Entorno
+## Environment Variables
 
 ```env
-# Opcional — para análisis con IA
+# Optional — for AI analysis
 OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
-## Mejoras Futuras
+## Future Improvements
 
-- [ ] WebSockets para datos en tiempo real
-- [ ] Soporte para múltiples criptos (BTC, SOL, etc.)
-- [ ] Alertas de precio con Web Push
-- [ ] Historial de análisis y gráficos interactivos
-- [ ] Conexión a APIs de exchanges (Binance, Coinbase) para datos de order book
+- [ ] WebSockets for real-time data
+- [ ] Support for more cryptos (SOL, etc.)
+- [ ] Price alerts with Web Push
+- [ ] Analysis history and interactive charts
+- [ ] Connection to exchange APIs (Binance, Coinbase) for order book data

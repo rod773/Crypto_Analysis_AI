@@ -4,12 +4,13 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatMessage } from '@/components/crypto/chat-message'
 import { Logo } from '@/components/ui/logo'
-import { Zap, SendHorizonal, Sparkles, RotateCcw, Coins, Bitcoin, Globe } from 'lucide-react'
+import { Zap, SendHorizonal, Sparkles, RotateCcw, Info } from 'lucide-react'
 import type { AnalysisResult, Asset } from '@/lib/types'
 import { getAssetConfig, ASSETS } from '@/lib/types'
 import { useScrollReveal } from '@/hooks/useScrollAnimations'
@@ -191,6 +192,10 @@ export default function Home() {
               </span>
               <span className="text-[11px] font-medium text-green-400">{(asset === 'gold' || asset === 'aud') ? '5+ fuentes' : '10+ fuentes'}</span>
             </div>
+            <Link href="/about/" className="flex items-center gap-1 rounded-lg border border-border/30 bg-card/40 px-2.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm transition-all hover:border-cyber/30 hover:text-cyber hover:bg-cyber/5">
+              <Info className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">About</span>
+            </Link>
           </div>
         </div>
       </header>

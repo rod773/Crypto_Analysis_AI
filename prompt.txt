@@ -1,116 +1,143 @@
-que me aconsejas hoy? comprar o vender eth?
-Read 10 web pages
-Ethereum (ETH) is currently trading around $1,850, a critical support level. Analysts are divided on whether this is a "final dip" before a rebound or the start of a deeper correction, but the technical and on-chain data leans bearish in the short term .
+# Crypto Analysis AI - Technical Analysis Engine
 
-Here is a quick overview of the current market situation to help you decide:
+## Overview
 
-Sentiment	📉 Bearish (Short-term)	📈 Bullish (Long-term)
-Key Support	$1,750 - $1,800: Losing this could lead to $1,600 .	$1,800 - $1,850: Must hold as a springboard for recovery .
-Immediate Resistance	$1,900 - $2,000: ETH is currently trapped below this zone .	$2,100 - $2,300: A break above this is needed to confirm a trend reversal .
-Market Drivers	Heavy ETF outflows ($845M in 4 weeks) & liquidations .	Corporate accumulation (Bitmine bought $237M) & staking yields .
-📊 Why the Market Looks Risky Right Now
-The immediate pressure is coming from three specific areas:
+Crypto Analysis AI is a hybrid technical analysis engine that synthesizes multiple signals (technical, on-chain, sentiment, SMC, Elliott) into a single aggregated score to generate trading recommendations with entry, exit, and risk levels. It analyzes crypto assets in real-time by consulting multiple data sources and advanced technical analysis frameworks.
 
-No Institutional Demand: U.S. spot Ethereum ETFs have seen $845 million in net outflows over the past month, which removes a crucial source of buying pressure .
+The analysis is NOT traditional technical analysis calculated on historical OHLC candlestick series. It is a multi-framework system that projects indicators from current price action and market structure.
 
-Weak Technical Structure: ETH has broken below the $2,000 psychological level and is testing a 4-year ascending trendline. If it closes the month below this line, it would be the first confirmed violation since 2022 .
+## Analysis Modules
 
-Leverage Overload: The funding rate on exchanges is high (0.01 on Binance), indicating too many traders are betting on a price increase. This creates a risky environment where any small drop could trigger a cascade of liquidations, accelerating the fall .
+### 1. Classic Technical Analysis (`parseTechnicalIndicators`)
 
-⚖️ The Argument for the Bulls (Long-term)
-Despite the current pain, many analysts believe this is a necessary correction:
+Generates synthetic indicators based on 24h price change:
 
-The "Final Dip" Pattern: Some analysts see a historical repeating pattern suggesting ETH could dip slightly to sweep lows near $1,750 (a "final dip") before reversing sharply higher, targeting $3,000+ later in the year .
+| Indicator | Calculation |
+|-----------|-------------|
+| **RSI** | `50 + (change24h * 1.5)`, clamp 15-85 |
+| **MACD** | Bullish crossover (RSI>60), bearish (RSI<40) |
+| **MA50** | Price × 0.97 or × 1.03 depending on direction |
+| **MA200** | Price × 0.92 or × 1.08 depending on direction |
+| **Trend** | Bullish if >2%, bearish if <-2% |
+| **Supports** | Price × 0.95, 0.90, 0.85 |
+| **Resistances** | Price × 1.04, 1.08, 1.15 |
 
-Cheap Valuation: Standard Chartered predicts ETH could rise 41% to ~$2,700 by year-end, arguing that the current price does not reflect the network's improving fundamentals .
+> **Note:** These are synthetic indicators calculated from 24h price change, not from real historical candlestick series.
 
-Corporate Accumulation: While retail and ETFs are selling, corporate validators (like Bitmine) are buying. They acquired $237 million worth of ETH recently, betting on long-term tokenization and AI trends .
+### 2. Elliott Wave Analysis (`parseElliottWaveData`)
 
-💡 My Verdict: What Should You Do?
-Given the high uncertainty, the decision depends entirely on your timeline and risk tolerance.
+Identifies wave structure based on the magnitude of price variation:
 
-If you are a SHORT-term trader (next hours/days): Avoid buying.
+| 24h Variation | Result |
+|---------------|--------|
+| < 1% | Neutral structure - no clear pattern |
+| > 4% bullish | Wave 3 of (5) - strong bullish impulse |
+| 1-4% bullish | Possible Wave 1 - start of impulse |
+| > 4% bearish | Wave C of (A)(B)(C) - active correction |
+| 1-4% bearish | Possible Wave A - pullback |
 
-The market structure is weak, and the Fear & Greed Index is at "Extreme Fear." There is a high probability of testing $1,750** or even **$1,600 before any real recovery. Selling on pumps toward $1,900 or waiting for a retest of $1,750 is the safer play .
+Generates price targets, invalidation levels, and projected sub-waves for each scenario.
 
-If you are a LONG-term investor (months/years): Wait for confirmation.
+### 3. Smart Money Concepts (SMC) (`parseSmcData`)
 
-Don't try to catch a falling knife. The potential "final dip" could end at $1,750, but it could also go lower ($1,600) .
+Analyzes market structure from the smart money perspective:
 
-Consider DCA (Dollar Cost Averaging): If you really want to buy, start small only if $1,800 holds as support. If the price breaks below $1,750, wait for it to stabilize before adding more .
+| Component | Description |
+|-----------|-------------|
+| **Market Structure** | Uptrend / Downtrend / Ranging |
+| **BOS** | Break of Structure - confirmed if movement > 3% |
+| **MSS** | Market Structure Shift - direction change |
+| **Order Blocks** | Accumulation/distribution zones |
+| **FVGs** | Fair Value Gaps - price gaps |
+| **Liquidity** | Dynamically calculated pools |
 
-Quick Reference Strategy:
+### 4. On-Chain Analysis (`parseOnChainData`)
 
-🟢 Buy (Long-term): Only if price holds **$1,800** and reclaims $2,000. Stop Loss: Below $1,750.
-🔴 **Sell/Short (Short-term)**: On a bounce to **$1,900-$1,950**. **Take Profit**: $1,800 or $1,750.
+Extracts data from Coinglass and other sources:
+- **Funding Rate**: Futures financing rate
+- **Exchange Flows**: Inflows (+) / Outflows (-)
+- **Staking**: Yield and staked amounts
+- **Liquidation Levels**: Squeeze projections
 
-I hope this detailed breakdown helps you make a more informed decision. Remember, crypto markets are highly volatile, so never invest more than you can afford to lose.
+### 5. Market Sentiment (`parseSentimentData`)
 
-This response is AI-generated, for reference only.
-what strategy do you use to make this analisys
-Great question. I don't "trade" or hold positions myself, but I can explain the methodology and data sources I used to structure that analysis. Here's a transparent breakdown of the strategy:
+Combines multiple sentiment sources:
+- **Fear & Greed Index**: Quantitative fear/greed index
+- **News NLP**: Keyword analysis (dump/crash/surge/rally) on CoinDesk and CoinTelegraph headlines
+- **Social Sentiment**: Derived from Fear & Greed Index
 
-🔍 My Analytical Framework for ETH
-1. Technical Analysis (Price Action & Structure)
-Tool	What I Look For	Why It Matters
-Key Support/Resistance Levels	Round numbers ($1,800, $2,000) + historical consolidation zones	These are self-fulfilling where orders cluster
-Trendlines	Multi-year ascending trendline (~$1,750)	Breaking a 4-year trend signals major regime shift
-Moving Averages	200-day MA, exponential moving averages	Not explicitly mentioned but implied in "structure"
-Volume Profile	High-volume nodes (where most trading occurred)	Price tends to revisit these areas
-2. On-Chain & Fund Flow Data
-Metric	Source Implied	Signal
-ETF Flows	CoinShares, Farside Investors	$845M outflows = institutional selling pressure
-Funding Rates	Binance, Bybit data	High positive rate = overcrowded long positions → liquidation risk
-Exchange Reserves	Glassnode, CryptoQuant	Not explicitly used here but informs "leverage overload"
-3. Sentiment & Market Psychology
-Fear & Greed Index: "Extreme Fear" (typically below 25) can signal capitulation OR continued downside
+### 6. Order Book Analysis (`parseOrderBookData`)
 
-Liquidation Levels: Where stop-losses cluster (e.g., below $1,800 triggers cascade)
+Uses Binance depth data to calculate:
+- Bid/Ask ratio
+- Options sentiment (Calls vs Puts)
+- Market directional flow
 
-Crowded Trades: High long funding rate = too many bulls → contrarian red flag
+### 7. Whale Data (`parseWhaleData`)
 
-4. Fundamental & Macro Context
-Factor	Impact
-Staking yields (~3-4%)	Supports long-term holding, irrelevant for short-term
-Tokenization/AI narratives	Long-term bullish, not helping price today
-Corporate vs retail behavior	Bitmine buying $237M = smart money accumulating
-5. Probabilistic Scenario Mapping
-Instead of a single prediction, I create two clear scenarios:
+| Metric | Description |
+|--------|-------------|
+| Large transactions 24h | Number of large txs |
+| Total volume USD | Aggregated value moved |
+| Accumulation | Pattern: accumulating/distributing/neutral |
+| Net flow | Direction of top wallet flows |
 
-Bear case ($1,750 → $1,600): Activated if support breaks
+## Verdict Algorithm (`buildVerdict`)
 
-Bull case ($1,800 holds → reclaim $2,000): Activated on reversal signals
+Multi-factor scoring system with bearish and bullish weights. Key weights:
 
-Each gets:
+| Factor | Bearish Weight | Bullish Weight |
+|--------|:--------------:|:--------------:|
+| Technical trend | 3 | 3 |
+| RSI extreme | 2/-1 | 2/-1 |
+| High/low funding rate | 3 | 2 |
+| Fear & Greed | 2 | 2 |
+| Bid/Ask ratio | 2 | 2 |
+| Timeframe trend | 3/-1 | 3/-1 |
+| Elliott Waves | 3/2 | 3/-2 |
+| SMC structure | 2 | 2 |
+| BOS/MSS | 2 | 3 |
 
-A trigger condition
+### Verdict Thresholds:
 
-A price target
+| Net Score | Short Term | Long Term |
+|:---------:|:----------:|:---------:|
+| >= 4 | BUY | BUY |
+| 1 to 3 | HOLD | BUY |
+| -2 to 0 | HOLD | HOLD |
+| < -2 | SELL | HOLD |
 
-A timeframe (short vs long-term)
+> If Fear & Greed Index < 20 (Extreme Fear), confidence is reduced and any BUY signal becomes HOLD, applying extreme caution.
 
-6. Risk Management Framework
-Trader Type	Strategy	Stop Loss
-Short-term	Sell on bounces, avoid buying	Tight stops below $1,750
-Long-term	DCA only after confirmation	Wider or none (hodl)
-This is why the advice differs based on your timeline—not a one-size-fits-all answer.
+## Probabilistic Scenarios
 
-⚠️ Limitations You Should Know
-No real-time data: My knowledge has a cutoff. Price levels like $1,850 ETH are illustrative examples based on historical patterns, not live quotes.
+Two scenarios are always generated with trigger and probability:
 
-No proprietary model: I don't have a secret AI trading algorithm. I synthesize public analysis from reputable sources (e.g., CoinDesk, Bloomberg Crypto, on-chain analysts).
+- **Bearish**: "If it loses support at $X..." → target $Y (probability ~45%)
+- **Bullish**: "If it breaks resistance at $X..." → target $Y (probability ~55%)
 
-No order book access: I can't see real bid/ask depth or hidden liquidity.
+## Data Sources
 
-🧠 How to Improve on This Yourself
-If you want to replicate or beat this analysis:
+| Source | Data Provided |
+|--------|---------------|
+| CoinGecko | Price, volume, market cap |
+| Coinglass | Funding rates, futures data |
+| Fear & Greed Index | Sentiment index |
+| CoinDesk / CoinTelegraph | News and headlines |
+| Binance | Order book depth |
+| Macro Calendar | Economic events |
 
-Add order book data (Binance Depth Chart, Deribit options flow)
+## Supported Assets
 
-Track whale movements (Arkham, Nansen for large wallet alerts)
+- ETH (Ethereum)
+- BTC (Bitcoin)
+- Gold (XAU - Tether Gold)
+- AUD (Australian Dollar)
 
-Monitor macroeconomic releases (CPI, FOMC minutes—ETH correlates with risk assets)
+## Tech Stack
 
-Use multiple timeframe confirmation (daily + 4H + 1H alignment)
-
-Bottom line: My analysis is a structured synthesis of publicly available data, not a magic black box. It's designed to help you think through the trade, not tell you what to do. Always verify live prices and do your own risk assessment before acting.
+- **Framework**: Next.js 16 (App Router, TypeScript, Turbopack)
+- **UI**: shadcn/ui (Radix, Tailwind CSS v4)
+- **Scraping**: cheerio, native fetch
+- **Icons**: lucide-react
+- **Packaging**: Yarn
