@@ -82,3 +82,5 @@ Technical requirements:
 - No voiceover needed, background synthwave/chill electronic music
 - Text overlays in Spanish throughout
 - Use data visualization style (gauges, charts, scoreboards, progress bars)
+
+- quiero graficas explicativas en cada seccion narradas en español
