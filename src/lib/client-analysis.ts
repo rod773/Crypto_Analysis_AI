@@ -348,43 +348,134 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
   const estimatedWhaleTxns = volume24h > 10_000_000_000 ? Math.round(volume24h / 500_000_000) : 5
   const whaleVolume = volume24h * 0.35 // ~35% of volume is whale activity
 
-  const verdictNetScore = (trend === 'bullish' ? 3 : trend === 'bearish' ? -2 : 0) +
-    (clampedRsi < 30 ? 2 : clampedRsi > 70 ? -1 : 0) +
-    (fearGreed > 70 ? 2 : fearGreed < 25 ? 1 : 0) +
-    (bidAskRatio > 1.1 ? 2 : bidAskRatio < 0.9 ? 1 : 0) +
-    (ewData?.trend === 'impulse' && (ewData?.currentWave ?? 5) <= 3 ? 3 : 0) +
-    (smcData?.marketStructure === 'uptrend' ? 2 : smcData?.marketStructure === 'downtrend' ? -2 : 0) +
-    (alignment === 'aligned' && dominantTrend === 'bullish' ? 3 : alignment === 'aligned' && dominantTrend === 'bearish' ? -3 : 0)
+  // ── Winning Predictive Strategy (weighted multi-factor score) ──
+  function calcWeightedClientScore(): {
+    netScore: number; buyScore: number; sellScore: number
+    buyWeight: number; sellWeight: number
+  } {
+    let buyScore = 0, sellScore = 0, buyWeight = 0, sellWeight = 0
 
-  let shortTerm: 'buy' | 'sell' | 'hold'; let longTerm: 'buy' | 'sell' | 'hold'
-  let confidence: number; let summary: string
-  let stopLoss: number; let takeProfitShort: number; let takeProfitLong: number
+    // 1. RSI Momentum (15%)
+    if (clampedRsi < 30) { buyScore += 3; buyWeight += 15 }
+    else if (clampedRsi < 40) { buyScore += 2; buyWeight += 10 }
+    else if (clampedRsi > 70) { sellScore += 3; sellWeight += 15 }
+    else if (clampedRsi > 60) { sellScore += 2; sellWeight += 10 }
 
-  if (verdictNetScore >= 4) {
-    shortTerm = 'buy'; longTerm = 'buy'
-    confidence = Math.min(85, 50 + verdictNetScore * 8)
-    summary = 'The market structure is strongly bullish. Technical indicators align with positive on-chain flows and favorable sentiment. This is a good entry point for both short and long term.'
-    stopLoss = roundPrice(price * 0.93); takeProfitShort = roundPrice(price * 1.12); takeProfitLong = roundPrice(price * 1.35)
-  } else if (verdictNetScore >= 1) {
-    shortTerm = 'hold'; longTerm = 'buy'
-    confidence = Math.min(70, 40 + verdictNetScore * 8)
-    summary = 'Mixed signals overall. The short-term picture is uncertain but the long-term fundamentals remain intact. Consider waiting for confirmation before entering, or DCA into a position.'
-    stopLoss = roundPrice(price * 0.92); takeProfitShort = roundPrice(price * 1.08); takeProfitLong = roundPrice(price * 1.25)
-  } else if (verdictNetScore >= -2) {
-    shortTerm = 'hold'; longTerm = 'hold'
-    confidence = Math.min(60, 40 + Math.abs(verdictNetScore) * 5)
-    summary = 'The market is in a neutral zone with conflicting signals. High funding rates and weak technical structure suggest caution. The best strategy is to wait for a clearer setup before acting.'
-    stopLoss = roundPrice(price * 0.90); takeProfitShort = roundPrice(price * 1.05); takeProfitLong = roundPrice(price * 1.15)
-  } else {
-    shortTerm = 'sell'; longTerm = 'hold'
-    confidence = Math.min(80, 50 + Math.abs(verdictNetScore) * 7)
-    summary = 'Short-term risks are elevated. Weak technical structure, high funding rates (crowded longs), and bearish sentiment create a dangerous setup. Avoid buying into weakness. If you hold, consider tight stops. For long-term investors, wait for confirmation of support before adding.'
-    stopLoss = roundPrice(price * 1.05); takeProfitShort = roundPrice(price * 0.95); takeProfitLong = roundPrice(price * 1.10)
+    // 2. Trend Direction (20%)
+    if (trend === 'bullish') { buyScore += 3; buyWeight += 20 }
+    else if (trend === 'bearish') { sellScore += 3; sellWeight += 20 }
+
+    // 3. Multi-Timeframe Alignment (20%)
+    if (alignment === 'aligned') {
+      if (dominantTrend === 'bullish') { buyScore += 3; buyWeight += 20 }
+      else if (dominantTrend === 'bearish') { sellScore += 3; sellWeight += 20 }
+    } else if (alignment === 'partial') {
+      if (dominantTrend === 'bullish') { buyScore += 1; buyWeight += 8 }
+      else if (dominantTrend === 'bearish') { sellScore += 1; sellWeight += 8 }
+    }
+
+    // 4. SMC Structure (15%)
+    if (smcData?.marketStructure === 'uptrend' && smcData?.lastBos === 'bullish') { buyScore += 3; buyWeight += 15 }
+    else if (smcData?.marketStructure === 'downtrend' && smcData?.lastBos === 'bearish') { sellScore += 3; sellWeight += 15 }
+    else if (smcData?.marketStructure === 'uptrend') { buyScore += 2; buyWeight += 10 }
+    else if (smcData?.marketStructure === 'downtrend') { sellScore += 2; sellWeight += 10 }
+
+    // 5. Elliott Wave (10%)
+    if (ewData?.trend === 'impulse') {
+      if ((ewData?.currentWave ?? 5) <= 3) { buyScore += 2; buyWeight += 10 }
+      else if ((ewData?.currentWave ?? 5) === 4) { buyScore += 1; buyWeight += 5 }
+    } else if (ewData?.trend === 'corrective') {
+      if ((ewData?.currentWave ?? 1) >= 3) { sellScore += 2; sellWeight += 10 }
+      else { sellScore += 1; sellWeight += 5 }
+    }
+
+    // 6. Fear & Greed - Contrarian (10%)
+    if (fearGreed < 20) { buyScore += 2; buyWeight += 10 }
+    else if (fearGreed < 30) { buyScore += 1; buyWeight += 5 }
+    else if (fearGreed > 80) { sellScore += 2; sellWeight += 10 }
+    else if (fearGreed > 70) { sellScore += 1; sellWeight += 5 }
+
+    // 7. Order Book Flow (5%)
+    if (bidAskRatio > 1.2) { buyScore += 2; buyWeight += 5 }
+    else if (bidAskRatio > 1.05) { buyScore += 1; buyWeight += 3 }
+    else if (bidAskRatio < 0.8) { sellScore += 2; sellWeight += 5 }
+    else if (bidAskRatio < 0.95) { sellScore += 1; sellWeight += 3 }
+
+    // 8. Funding (5%)
+    if (fundingRate > 0.05) { sellScore += 1; sellWeight += 5 }
+    else if (fundingRate < -0.02) { buyScore += 1; buyWeight += 5 }
+
+    const totalBuy = buyScore * (buyWeight / 100)
+    const totalSell = sellScore * (sellWeight / 100)
+    const maxPossible = Math.max(buyWeight, sellWeight) / 100 * 3
+    const netScore = maxPossible > 0 ? ((totalBuy - totalSell) / maxPossible) * 50 : 0
+
+    return { netScore, buyScore, sellScore, buyWeight, sellWeight }
   }
 
-  if (fearGreed < 20) {
-    confidence = Math.max(confidence - 10, 30)
-    if (shortTerm === 'buy') shortTerm = 'hold'
+  const score = calcWeightedClientScore()
+  const netScore = score.netScore
+
+  let shortTerm: 'buy' | 'sell' | 'hold'
+  let longTerm: 'buy' | 'sell' | 'hold'
+  let confidence: number
+  let summary: string
+  let stopLoss: number
+  let takeProfitShort: number
+  let takeProfitLong: number
+
+  // Strong Buy: +30 or more
+  if (netScore >= 30) {
+    shortTerm = 'buy'; longTerm = 'buy'
+    confidence = Math.min(92, 65 + netScore * 0.6)
+    summary = `Winning signal: Strong bullish convergence. ${score.buyScore}/${score.buyWeight}W buy factors vs ${score.sellScore}/${score.sellWeight}W sell. ${smcData?.marketStructure ?? 'neutral'} structure, ${ewData?.trend ?? 'neutral'} wave, ${dominantTrend} alignment. High-probability upward move expected.`
+    stopLoss = roundPrice(price * 0.935); takeProfitShort = roundPrice(price * 1.14); takeProfitLong = roundPrice(price * 1.32)
+  }
+  // Moderate Buy: +10 to +29
+  else if (netScore >= 10) {
+    shortTerm = 'hold'; longTerm = 'buy'
+    confidence = Math.min(78, 50 + netScore * 0.7)
+    summary = `Bullish bias confirmed. ${score.buyScore} buy signals vs ${score.sellScore} sell. ${smcData?.marketStructure ?? 'neutral'} market structure with ${dominantTrend} trend alignment. Good accumulation zone for long-term positions.`
+    stopLoss = roundPrice(price * 0.925); takeProfitShort = roundPrice(price * 1.10); takeProfitLong = roundPrice(price * 1.28)
+  }
+  // Weak Bullish / Neutral: 0 to +9
+  else if (netScore >= 0) {
+    shortTerm = 'hold'; longTerm = 'hold'
+    confidence = Math.min(60, 45 + netScore * 1.5)
+    summary = `Cautious outlook. Mild bullish edge (${netScore.toFixed(1)}) but not enough conviction. ${dominantTrend} dominant trend. Watch for a breakout above resistance or wait for deeper discount before committing.`
+    stopLoss = roundPrice(price * 0.91); takeProfitShort = roundPrice(price * 1.06); takeProfitLong = roundPrice(price * 1.18)
+  }
+  // Weak Bearish / Neutral: -9 to -1
+  else if (netScore > -20) {
+    shortTerm = 'hold'; longTerm = 'hold'
+    confidence = Math.min(60, 45 + Math.abs(netScore) * 1.5)
+    summary = `Defensive stance. Mild bearish edge (${netScore.toFixed(1)}). ${dominantTrend} trend with ${smcData?.marketStructure ?? 'neutral'} structure. Avoid fresh exposure until a clearer bullish setup emerges.`
+    stopLoss = roundPrice(price * 1.04); takeProfitShort = roundPrice(price * 0.95); takeProfitLong = roundPrice(price * 1.08)
+  }
+  // Moderate Sell: -35 to -20
+  else if (netScore >= -50) {
+    shortTerm = 'sell'; longTerm = 'hold'
+    confidence = Math.min(78, 50 + Math.abs(netScore) * 0.5)
+    summary = `Bearish bias building. ${score.sellScore} sell signals vs ${score.buyScore} buy. ${smcData?.marketStructure ?? 'neutral'} structure, ${ewData?.trend ?? 'neutral'} corrective phase. Reduce long exposure and wait for better entries.`
+    stopLoss = roundPrice(price * 1.065); takeProfitShort = roundPrice(price * 0.90); takeProfitLong = roundPrice(price * 1.05)
+  }
+  // Strong Sell: below -50
+  else {
+    shortTerm = 'sell'; longTerm = 'sell'
+    confidence = Math.min(92, 65 + Math.abs(netScore) * 0.4)
+    summary = `Winning signal: Strong bearish convergence. ${score.sellScore}/${score.sellWeight}W sell factors vs ${score.buyScore}/${score.buyWeight}W buy. ${smcData?.marketStructure ?? 'neutral'} breakdown, ${ewData?.trend ?? 'neutral'} wave, ${dominantTrend} alignment. High-probability downward move expected.`
+    stopLoss = roundPrice(price * 1.08); takeProfitShort = roundPrice(price * 0.86); takeProfitLong = roundPrice(price * 0.78)
+  }
+
+  // Contrarian override: extreme fear (< 20)
+  if (fearGreed < 20 && shortTerm === 'sell') {
+    shortTerm = 'hold'
+    summary += ' | Contrarian override: extreme fear detected. Avoid shorting into panic.'
+  }
+  // Contrarian override: extreme greed (> 80)
+  if (fearGreed > 80 && shortTerm === 'buy') {
+    shortTerm = 'hold'
+    summary += ' | Contrarian override: extreme greed detected. Take profits on longs.'
   }
 
   return {

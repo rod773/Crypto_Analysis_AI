@@ -1,0 +1,13 @@
+yarn run v1.22.22
+$ next dev
+▲ Next.js 16.2.7 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.2.0.2:3000
+✓ Ready in 657ms
+
+ GET / 200 in 494ms (next.js: 214ms, application-code: 280ms)
+ GET /api/analyze/?asset=btc 200 in 5.2s (next.js: 328ms, application-code: 4.9s)
+ GET / 200 in 422ms (next.js: 141ms, application-code: 281ms)
+ GET /api/analyze/?ai=false&asset=eth 200 in 5.3s (next.js: 176ms, application-code: 5.1s)
+
+D:\VIBE_CODE\Crypto_Analysis_AI>

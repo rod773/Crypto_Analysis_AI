@@ -15,9 +15,10 @@ function parsePriceData(sources: RawSourceData[], asset: Asset): PriceData {
   const coinData = coingecko?.[config.coinGeckoId]
   const price = coinData?.usd ?? (asset === 'aud' ? 0.7252 : asset === 'gold' ? 1850 : 1850)
   const isFiat = asset === 'gold' || asset === 'aud'
+  const change24h = coinData?.usd_24h_change ?? 0
   return {
     price,
-    change24h: coinData?.usd_24h_change ?? 0,
+    change24h,
     high24h: price * 1.04,
     low24h: price * 0.96,
     volume24h: coinData?.usd_24h_vol ?? (isFiat ? 0 : 15_000_000_000),
@@ -25,14 +26,30 @@ function parsePriceData(sources: RawSourceData[], asset: Asset): PriceData {
   }
 }
 
-function parseTechnicalIndicators(price: number, change24h: number): TechnicalIndicators {
-  const rsi = Math.round(50 + (change24h > 0 ? change24h * 1.5 : change24h * 1.5) * -1)
-  const clampedRsi = Math.max(15, Math.min(85, rsi))
+function inferMaStatus(price: number, maStatus: string, change24h: number): { ma50: number; ma200: number } {
+  const cmp = change24h > 0 ? 1 : -1
+  if (maStatus.includes('above 200 MA')) return { ma50: price * 0.92, ma200: price * 0.88 }
+  if (maStatus.includes('above 50 MA')) return { ma50: roundPrice(price * (1 - cmp * 0.03)), ma200: price * 0.92 }
+  return { ma50: price * (1 + cmp * 0.04), ma200: price * (1 + cmp * 0.06) }
+}
+
+function parseTechnicalIndicators(
+  price: number,
+  change24h: number,
+  timeframe: TimeframeData,
+): TechnicalIndicators {
+  const realRsi = timeframe.daily.rsi ?? 50
+  const realTrend = timeframe.dominantTrend
+  const maStatus = timeframe.daily.maStatus ?? 'unknown'
+  const ma = inferMaStatus(price, maStatus, change24h)
+
+  const macdSignal = realRsi > 60 ? 'bullish crossover' : realRsi < 40 ? 'bearish crossover' : 'neutral'
+
   return {
-    rsi: clampedRsi,
-    macd: clampedRsi < 40 ? 'bearish crossover' : clampedRsi > 60 ? 'bullish crossover' : 'neutral',
-    ma50: price * (change24h > 0 ? 0.97 : 1.03),
-    ma200: price * (change24h > 0 ? 0.92 : 1.08),
+    rsi: Math.max(15, Math.min(85, Math.round(realRsi))),
+    macd: macdSignal,
+    ma50: ma.ma50,
+    ma200: ma.ma200,
     supportLevels: [
       roundPrice(price * 0.95),
       roundPrice(price * 0.90),
@@ -43,7 +60,7 @@ function parseTechnicalIndicators(price: number, change24h: number): TechnicalIn
       roundPrice(price * 1.08),
       roundPrice(price * 1.15),
     ],
-    trend: change24h > 2 ? 'bullish' : change24h < -2 ? 'bearish' : 'neutral',
+    trend: realTrend,
   }
 }
 
@@ -130,7 +147,7 @@ function parseWhaleData(sources: RawSourceData[]): WhaleData {
     largeTxns24h: (w?.largeTxns24h as number) ?? 0,
     totalVolumeUsd: (w?.totalVolumeUsd as number) ?? 0,
     accumulation: (w?.accumulation as WhaleData['accumulation']) ?? 'neutral',
-    topWhaleNetFlow: (w?.topWhaleNetFlow as string) ?? 'â€”',
+    topWhaleNetFlow: (w?.topWhaleNetFlow as string) ?? '\u2014',
     notableTxns: (w?.notableTxns as WhaleData['notableTxns']) ?? [],
   }
 }
@@ -155,181 +172,159 @@ function parseTimeframeData(sources: RawSourceData[]): TimeframeData {
   }
 }
 
-function parseElliottWaveData(price: number, change24h: number, trend: string): ElliottWaveData {
-  const isBullish = change24h > 0
-  const absChange = Math.abs(change24h)
-
-  let currentWave: number
-  let waveCount: string
-  let ewTrend: 'impulse' | 'corrective' | 'neutral'
-  let completeness: number
-  let nextTarget: number
-  let invalidationLevel: number
-  const subWaves: { label: string; high: number; low: number }[] = []
-
-  if (absChange < 1) {
-    ewTrend = 'neutral'
-    currentWave = 0
-    waveCount = 'Ondas no claras â€” baj\u00EDsima volatilidad'
-    completeness = 10
-    nextTarget = price * 1.03
-    invalidationLevel = price * 0.97
-  } else if (isBullish) {
-    if (absChange > 4) {
-      currentWave = 3
-      waveCount = 'Onda 3 de (5) â€” Impulso alcista'
-      ewTrend = 'impulse'
-      completeness = 55
-      nextTarget = price * 1.12
-      invalidationLevel = price * 0.92
-    } else {
-      currentWave = 1
-      waveCount = 'Posible Onda 1 de (5) â€” Inicio de impulso'
-      ewTrend = 'impulse'
-      completeness = 25
-      nextTarget = price * 1.08
-      invalidationLevel = price * 0.95
+function parseElliottWaveData(sources: RawSourceData[]): ElliottWaveData {
+  const ew = sources.find((s) => s.name === 'Elliott Wave')?.data as Record<string, unknown> | undefined
+  if (ew && (ew.trend as string)) {
+    return {
+      waveCount: (ew.waveCount as string) ?? '',
+      currentWave: (ew.currentWave as number) ?? 0,
+      trend: (ew.trend as ElliottWaveData['trend']) ?? 'neutral',
+      completeness: (ew.completeness as number) ?? 0,
+      nextTarget: (ew.nextTarget as number) ?? 0,
+      invalidationLevel: (ew.invalidationLevel as number) ?? 0,
+      subWaves: (ew.subWaves as ElliottWaveData['subWaves']) ?? [],
+      description: (ew.description as string) ?? '',
     }
-    subWaves.push(
-      { label: '1', high: price, low: roundPrice(price * 0.94) },
-      { label: '2', high: roundPrice(price * 0.98), low: roundPrice(price * 0.93) },
-      { label: '3', high: roundPrice(price * 1.06), low: roundPrice(price * 0.97) },
-    )
-  } else {
-    if (absChange > 4) {
-      currentWave = 3
-      waveCount = 'Onda C de (A)-(B)-(C) â€” Correcci\u00F3n activa'
-      ewTrend = 'corrective'
-      completeness = 65
-      nextTarget = price * 0.88
-      invalidationLevel = price * 1.05
-    } else {
-      currentWave = -1
-      waveCount = 'Posible Onda A de correcci\u00F3n â€” Retroceso'
-      ewTrend = 'corrective'
-      completeness = 35
-      nextTarget = price * 0.93
-      invalidationLevel = price * 1.04
-    }
-    subWaves.push(
-      { label: 'A', high: price, low: roundPrice(price * 0.95) },
-      { label: 'B', high: roundPrice(price * 1.01), low: roundPrice(price * 0.96) },
-      { label: 'C', high: roundPrice(price * 0.97), low: roundPrice(price * 0.90) },
-    )
   }
+  return {
+    waveCount: 'No data',
+    currentWave: 0,
+    trend: 'neutral',
+    completeness: 0,
+    nextTarget: 0,
+    invalidationLevel: 0,
+    subWaves: [],
+    description: 'No se pudieron calcular ondas Elliott',
+  }
+}
+
+function parseSmcData(sources: RawSourceData[]): SmcData {
+  const smc = sources.find((s) => s.name === 'Smart Money Concepts')?.data as Record<string, unknown> | undefined
+  if (smc && (smc.marketStructure as string)) {
+    return {
+      marketStructure: (smc.marketStructure as SmcData['marketStructure']) ?? 'ranging',
+      structureShift: (smc.structureShift as boolean) ?? false,
+      lastBos: (smc.lastBos as SmcData['lastBos']) ?? null,
+      orderBlocks: (smc.orderBlocks as SmcData['orderBlocks']) ?? [],
+      fvgs: (smc.fvgs as SmcData['fvgs']) ?? [],
+      liquidityAbove: (smc.liquidityAbove as number) ?? 0,
+      liquidityBelow: (smc.liquidityBelow as number) ?? 0,
+      description: (smc.description as string) ?? '',
+    }
+  }
+  return {
+    marketStructure: 'ranging',
+    structureShift: false,
+    lastBos: null,
+    orderBlocks: [],
+    fvgs: [],
+    liquidityAbove: 0,
+    liquidityBelow: 0,
+    description: 'No se pudieron calcular datos SMC',
+  }
+}
+
+interface VerdictContext {
+  price: number
+  technical: TechnicalIndicators
+  onChain: OnChainData
+  sentiment: SentimentData
+  orderBook: OrderBookData
+  whaleData: WhaleData
+  timeframe: TimeframeData
+  elliottWave: ElliottWaveData
+  smc: SmcData
+  macro: MacroData
+}
+
+function calcWeightedScore(ctx: VerdictContext) {
+  const { technical, timeframe, sentiment, orderBook, whaleData, elliottWave, smc, macro, price } = ctx
+  const rsi = technical.rsi
+  const fng = sentiment.fearGreedIndex
+
+  let buyScore = 0
+  let sellScore = 0
+  let buyWeight = 0
+  let sellWeight = 0
+
+  // 1. RSI Momentum (weight: 15%)
+  if (rsi < 30) { buyScore += 3; buyWeight += 15 }
+  else if (rsi < 40) { buyScore += 2; buyWeight += 10 }
+  else if (rsi > 70) { sellScore += 3; sellWeight += 15 }
+  else if (rsi > 60) { sellScore += 2; sellWeight += 10 }
+
+  // 2. Trend Direction (weight: 20%)
+  if (technical.trend === 'bullish') { buyScore += 3; buyWeight += 20 }
+  else if (technical.trend === 'bearish') { sellScore += 3; sellWeight += 20 }
+
+  // 3. Multi-Timeframe Alignment (weight: 20%)
+  if (timeframe.alignment === 'aligned') {
+    if (timeframe.dominantTrend === 'bullish') { buyScore += 3; buyWeight += 20 }
+    else if (timeframe.dominantTrend === 'bearish') { sellScore += 3; sellWeight += 20 }
+  } else if (timeframe.alignment === 'partial') {
+    if (timeframe.dominantTrend === 'bullish') { buyScore += 1; buyWeight += 8 }
+    else if (timeframe.dominantTrend === 'bearish') { sellScore += 1; sellWeight += 8 }
+  }
+
+  // 4. SMC Market Structure (weight: 15%)
+  if (smc.marketStructure === 'uptrend' && smc.lastBos === 'bullish') { buyScore += 3; buyWeight += 15 }
+  else if (smc.marketStructure === 'downtrend' && smc.lastBos === 'bearish') { sellScore += 3; sellWeight += 15 }
+  else if (smc.marketStructure === 'uptrend') { buyScore += 2; buyWeight += 10 }
+  else if (smc.marketStructure === 'downtrend') { sellScore += 2; sellWeight += 10 }
+
+  // 5. Elliott Wave Position (weight: 10%)
+  if (elliottWave.trend === 'impulse') {
+    if (elliottWave.currentWave <= 3) { buyScore += 2; buyWeight += 10 }
+    else if (elliottWave.currentWave === 4) { buyScore += 1; buyWeight += 5 }
+  } else if (elliottWave.trend === 'corrective') {
+    if (elliottWave.currentWave >= 3) { sellScore += 2; sellWeight += 10 }
+    else { sellScore += 1; sellWeight += 5 }
+  }
+
+  // 6. Sentiment / Fear & Greed (weight: 10%) - Contrarian
+  if (fng < 20) { buyScore += 2; buyWeight += 10 } // extreme fear = buy
+  else if (fng < 30) { buyScore += 1; buyWeight += 5 }
+  else if (fng > 80) { sellScore += 2; sellWeight += 10 } // extreme greed = sell
+  else if (fng > 70) { sellScore += 1; sellWeight += 5 }
+
+  // 7. Order Book Flow (weight: 5%)
+  if (orderBook.bidAskRatio > 1.2) { buyScore += 2; buyWeight += 5 }
+  else if (orderBook.bidAskRatio > 1.05) { buyScore += 1; buyWeight += 3 }
+  else if (orderBook.bidAskRatio < 0.8) { sellScore += 2; sellWeight += 5 }
+  else if (orderBook.bidAskRatio < 0.95) { sellScore += 1; sellWeight += 3 }
+
+  // 8. Whale Activity (weight: 5%)
+  if (whaleData.accumulation === 'accumulating') { buyScore += 2; buyWeight += 5 }
+  else if (whaleData.accumulation === 'distributing') { sellScore += 2; sellWeight += 5 }
+
+  // 9. On-Chain Funding (weight: 5%)
+  const funding = ctx.onChain.fundingRate
+  if (funding > 0.05) { sellScore += 1; sellWeight += 5 } // expensive longs
+  else if (funding < -0.02) { buyScore += 1; buyWeight += 5 } // shorts pay
+
+  // 10. Macro Risk Environment (weight: 5%)
+  if (macro.riskOn) { buyScore += 1; buyWeight += 5 }
+  else { sellScore += 1; sellWeight += 5 }
+
+  // Calculate weighted conviction (0-100)
+  const totalBuy = buyScore * (buyWeight / 100)
+  const totalSell = sellScore * (sellWeight / 100)
+  const maxPossible = Math.max(buyWeight, sellWeight) / 100 * 3 // normalize
+  const netScore = maxPossible > 0 ? ((totalBuy - totalSell) / maxPossible) * 50 : 0
 
   return {
-    waveCount,
-    currentWave,
-    trend: ewTrend,
-    completeness,
-    nextTarget,
-    invalidationLevel,
-    subWaves,
-    description: buildElliottDescription(ewTrend, currentWave, price, nextTarget, invalidationLevel, trend),
+    netScore,
+    buyScore,
+    sellScore,
+    buyWeight,
+    sellWeight,
+    rsi,
+    fng,
+    price,
+    dominantTrend: timeframe.dominantTrend,
+    smcStructure: smc.marketStructure,
+    ewTrend: elliottWave.trend,
   }
-}
-
-function buildElliottDescription(trend: string, wave: number, price: number, target: number, invalidation: number, overallTrend: string): string {
-  if (trend === 'neutral') {
-    return 'No se identifica un patr\u00F3n de ondas Elliott claro debido a la baja volatilidad. Esperar una ruptura direccional para confirmar el conteo.'
-  }
-  if (trend === 'impulse') {
-    if (wave <= 3) {
-      return `Estructura impulsiva alcista en desarrollo. Las Ondas 1 y 2 ya se completaron, y la Onda 3 (la m\u00E1s fuerte) est\u00E1 en progreso. Objetivo en $${target.toLocaleString()}. Mientras $${invalidation.toLocaleString()} se mantenga como soporte, la estructura alcista sigue intacta.`
-    }
-    return `Onda 3 probablemente completada. Acerc\u00E1ndose a Onda 4 correctiva y luego Onda 5 final. Riesgo de agotamiento de tendencia.`
-  }
-  return `Correcci\u00F3n en curso (Onda ${wave === -1 ? 'A' : 'C'}). El mercado est\u00E1 retrocediendo el impulso previo. Esperar se\u00F1ales de reversi\u00F3n en $${target.toLocaleString()} antes de considerar entrada larga.`
-}
-
-function parseSmcData(price: number, change24h: number, trend: string, elliottWave: ElliottWaveData): SmcData {
-  const isBullish = change24h > 0
-  const isStrongMove = Math.abs(change24h) > 3
-  const isRanging = Math.abs(change24h) < 1
-
-  const marketStructure: 'uptrend' | 'downtrend' | 'ranging' = isRanging ? 'ranging' : isBullish ? 'uptrend' : 'downtrend'
-  const structureShift = isStrongMove && (isBullish ? trend === 'bearish' : trend === 'bullish')
-  const lastBos: 'bullish' | 'bearish' | null = isStrongMove ? (isBullish ? 'bullish' : 'bearish') : null
-
-  const orderBlocks: SmcOrderBlock[] = []
-  const fvgs: SmcFvg[] = []
-
-  if (isBullish || isRanging) {
-    orderBlocks.push({
-      type: 'bullish',
-      price: roundPrice(price * 0.955),
-      strength: Math.abs(change24h) > 2 ? 'strong' : 'moderate',
-      touched: false,
-    })
-    fvgs.push({
-      type: 'bullish',
-      upper: roundPrice(price * 1.02),
-      lower: roundPrice(price * 0.985),
-      filled: false,
-    })
-  }
-
-  if (!isBullish || isRanging) {
-    orderBlocks.push({
-      type: 'bearish',
-      price: roundPrice(price * 1.045),
-      strength: !isBullish && Math.abs(change24h) > 2 ? 'strong' : 'moderate',
-      touched: isRanging,
-    })
-    fvgs.push({
-      type: 'bearish',
-      upper: roundPrice(price * 1.015),
-      lower: roundPrice(price * 0.98),
-      filled: isRanging,
-    })
-  }
-
-  const liquidityAbove = roundPrice(price * (1 + (0.03 + Math.abs(change24h) / 200)))
-  const liquidityBelow = roundPrice(price * (1 - (0.03 + Math.abs(change24h) / 200)))
-
-  return {
-    marketStructure,
-    structureShift,
-    lastBos,
-    orderBlocks,
-    fvgs,
-    liquidityAbove,
-    liquidityBelow,
-    description: buildSmcDescription(marketStructure, structureShift, lastBos, liquidityAbove, liquidityBelow, price, elliottWave),
-  }
-}
-
-function buildSmcDescription(
-  structure: string, shift: boolean, bos: string | null,
-  liqAbove: number, liqBelow: number, price: number, ew: ElliottWaveData
-): string {
-  let desc = ''
-  if (structure === 'uptrend') {
-    desc = `Estructura de mercado alcista. `
-    if (bos) desc += `Se confirm\u00F3 un BOS (Break of Structure) alcista. `
-    if (shift) desc += `Posible cambio de estructura (MSS) detectado â€” el smart money estar\u00EDa acumulando. `
-    desc += `Liquidez de stop-losses por encima en $${liqAbove.toLocaleString()}. `
-    desc += `Buscar order blocks alcistas cerca de $${(price * 0.95).toLocaleString()} para entradas largas.`
-  } else if (structure === 'downtrend') {
-    desc = `Estructura de mercado bajista. `
-    if (bos) desc += `BOS bajista confirmado. `
-    if (shift) desc += `Posible MSS bajista â€” smart money distribuyendo. `
-    desc += `Liquidez por debajo en $${liqBelow.toLocaleString()}. `
-    desc += `Buscar FVG o retest de OB bajista para entradas cortas.`
-  } else {
-    desc = `El mercado est\u00E1 en rango, sin estructura direccional clara. `
-    desc += `Liquidez arriba en $${liqAbove.toLocaleString()} y abajo en $${liqBelow.toLocaleString()}. `
-    desc += `Esperar una ruptura con volumen para confirmar direcci\u00F3n.`
-  }
-
-  if (ew.trend === 'impulse') {
-    desc += ` El conteo de Elliott coincide con estructura impulsiva â€” refuerza la tesis direccional.`
-  } else if (ew.trend === 'corrective' && structure !== 'ranging') {
-    desc += ` La correcci\u00F3n de Elliott podr\u00EDa estar cazando liquidez antes del siguiente movimiento direccional.`
-  }
-
-  return desc
 }
 
 function buildVerdict(
@@ -342,37 +337,12 @@ function buildVerdict(
   timeframe: TimeframeData,
   elliottWave: ElliottWaveData,
   smc: SmcData,
+  macro: MacroData,
 ): AnalysisResult['verdict'] {
-  const bearishScore =
-    (technical.trend === 'bearish' ? 3 : 0) +
-    (technical.rsi > 70 ? 2 : technical.rsi < 30 ? -1 : 0) +
-    (onChain.fundingRate > 0.005 ? 3 : 0) +
-    (sentiment.fearGreedIndex < 25 ? 2 : 0) +
-    (orderBook.bidAskRatio < 0.9 ? 2 : 0) +
-    (whaleData.accumulation === 'distributing' ? 2 : 0) +
-    (timeframe.dominantTrend === 'bearish' ? 3 : timeframe.dominantTrend === 'bullish' ? -1 : 0) +
-    (timeframe.alignment === 'aligned' && timeframe.dominantTrend === 'bearish' ? 3 : 0) +
-    (elliottWave.trend === 'impulse' && elliottWave.currentWave >= 5 ? 3 : 0) +
-    (elliottWave.currentWave <= -3 ? 2 : 0) +
-    (smc.marketStructure === 'downtrend' ? 2 : 0) +
-    (smc.lastBos === 'bearish' ? 2 : 0)
-
-  const bullishScore =
-    (technical.trend === 'bullish' ? 3 : 0) +
-    (technical.rsi < 30 ? 2 : technical.rsi > 70 ? -1 : 0) +
-    (onChain.fundingRate < 0.001 ? 2 : 0) +
-    (sentiment.fearGreedIndex > 70 ? 2 : 0) +
-    (orderBook.bidAskRatio > 1.1 ? 2 : 0) +
-    (whaleData.accumulation === 'accumulating' ? 2 : 0) +
-    (timeframe.dominantTrend === 'bullish' ? 3 : timeframe.dominantTrend === 'bearish' ? -1 : 0) +
-    (timeframe.alignment === 'aligned' && timeframe.dominantTrend === 'bullish' ? 3 : 0) +
-    (elliottWave.trend === 'impulse' && elliottWave.currentWave <= 3 ? 3 : 0) +
-    (elliottWave.currentWave <= -2 ? -2 : 0) +
-    (smc.marketStructure === 'uptrend' ? 2 : 0) +
-    (smc.lastBos === 'bullish' ? 2 : 0) +
-    (smc.structureShift ? 3 : 0)
-
-  const netScore = bullishScore - bearishScore
+  const ctx: VerdictContext = { price, technical, onChain, sentiment, orderBook, whaleData, timeframe, elliottWave, smc, macro }
+  const score = calcWeightedScore(ctx)
+  const netScore = score.netScore
+  const fng = score.fng
 
   let shortTerm: 'buy' | 'sell' | 'hold'
   let longTerm: 'buy' | 'sell' | 'hold'
@@ -382,43 +352,77 @@ function buildVerdict(
   let takeProfitShort: number
   let takeProfitLong: number
 
-  if (netScore >= 4) {
+  // Strong Buy: +30 or more
+  if (netScore >= 30) {
     shortTerm = 'buy'
     longTerm = 'buy'
-    confidence = Math.min(85, 50 + netScore * 8)
-    summary = 'The market structure is strongly bullish. Technical indicators align with positive on-chain flows and favorable sentiment. This is a good entry point for both short and long term.'
-    stopLoss = roundPrice(price * 0.93)
-    takeProfitShort = roundPrice(price * 1.12)
-    takeProfitLong = roundPrice(price * 1.35)
-  } else if (netScore >= 1) {
+    confidence = Math.min(92, 65 + netScore * 0.6)
+    summary = `Winning signal: Strong bullish convergence. ${score.buyScore}/${score.buyWeight}W buy factors vs ${score.sellScore}/${score.sellWeight}W sell. ${score.smcStructure} structure, ${score.ewTrend} wave, ${score.dominantTrend} alignment. High-probability upward move expected.`
+    stopLoss = roundPrice(price * 0.935)
+    takeProfitShort = roundPrice(price * 1.14)
+    takeProfitLong = roundPrice(price * 1.32)
+  }
+  // Moderate Buy: +10 to +29
+  else if (netScore >= 10) {
     shortTerm = 'hold'
     longTerm = 'buy'
-    confidence = Math.min(70, 40 + netScore * 8)
-    summary = 'Mixed signals overall. The short-term picture is uncertain but the long-term fundamentals remain intact. Consider waiting for confirmation before entering, or DCA into a position.'
-    stopLoss = roundPrice(price * 0.92)
-    takeProfitShort = roundPrice(price * 1.08)
-    takeProfitLong = roundPrice(price * 1.25)
-  } else if (netScore >= -2) {
+    confidence = Math.min(78, 50 + netScore * 0.7)
+    summary = `Bullish bias confirmed. ${score.buyScore} buy signals vs ${score.sellScore} sell. ${score.smcStructure} market structure with ${score.dominantTrend} trend alignment. Good accumulation zone for long-term positions.`
+    stopLoss = roundPrice(price * 0.925)
+    takeProfitShort = roundPrice(price * 1.10)
+    takeProfitLong = roundPrice(price * 1.28)
+  }
+  // Weak Bullish / Neutral: 0 to +9
+  else if (netScore >= 0) {
     shortTerm = 'hold'
     longTerm = 'hold'
-    confidence = Math.min(60, 40 + Math.abs(netScore) * 5)
-    summary = 'The market is in a neutral zone with conflicting signals. High funding rates and weak technical structure suggest caution. The best strategy is to wait for a clearer setup before acting.'
-    stopLoss = roundPrice(price * 0.90)
-    takeProfitShort = roundPrice(price * 1.05)
-    takeProfitLong = roundPrice(price * 1.15)
-  } else {
+    confidence = Math.min(60, 45 + netScore * 1.5)
+    summary = `Cautious outlook. Mild bullish edge (${netScore.toFixed(1)}) but not enough conviction. ${score.dominantTrend} dominant trend. Watch for a breakout above resistance or wait for deeper discount before committing.`
+    stopLoss = roundPrice(price * 0.91)
+    takeProfitShort = roundPrice(price * 1.06)
+    takeProfitLong = roundPrice(price * 1.18)
+  }
+  // Weak Bearish / Neutral: -9 to -1
+  else if (netScore > -20) {
+    shortTerm = 'hold'
+    longTerm = 'hold'
+    confidence = Math.min(60, 45 + Math.abs(netScore) * 1.5)
+    summary = `Defensive stance. Mild bearish edge (${netScore.toFixed(1)}). ${score.dominantTrend} trend with ${score.smcStructure} structure. Avoid fresh exposure until a clearer bullish setup emerges.`
+    stopLoss = roundPrice(price * 1.04)
+    takeProfitShort = roundPrice(price * 0.95)
+    takeProfitLong = roundPrice(price * 1.08)
+  }
+  // Moderate Sell: -35 to -20
+  else if (netScore >= -50) {
     shortTerm = 'sell'
     longTerm = 'hold'
-    confidence = Math.min(80, 50 + Math.abs(netScore) * 7)
-    summary = 'Short-term risks are elevated. Weak technical structure, high funding rates (crowded longs), and bearish sentiment create a dangerous setup. Avoid buying into weakness. If you hold, consider tight stops. For long-term investors, wait for confirmation of support before adding.'
-    stopLoss = roundPrice(price * 1.05)
-    takeProfitShort = roundPrice(price * 0.95)
-    takeProfitLong = roundPrice(price * 1.10)
+    confidence = Math.min(78, 50 + Math.abs(netScore) * 0.5)
+    summary = `Bearish bias building. ${score.sellScore} sell signals vs ${score.buyScore} buy. ${score.smcStructure} structure, ${score.ewTrend} corrective phase. Reduce long exposure and wait for better entries.`
+    stopLoss = roundPrice(price * 1.065)
+    takeProfitShort = roundPrice(price * 0.90)
+    takeProfitLong = roundPrice(price * 1.05)
+  }
+  // Strong Sell: below -50
+  else {
+    shortTerm = 'sell'
+    longTerm = 'sell'
+    confidence = Math.min(92, 65 + Math.abs(netScore) * 0.4)
+    summary = `Winning signal: Strong bearish convergence. ${score.sellScore}/${score.sellWeight}W sell factors vs ${score.buyScore}/${score.buyWeight}W buy. ${score.smcStructure} breakdown, ${score.ewTrend} wave, ${score.dominantTrend} alignment. High-probability downward move expected.`
+    stopLoss = roundPrice(price * 1.08)
+    takeProfitShort = roundPrice(price * 0.86)
+    takeProfitLong = roundPrice(price * 0.78)
   }
 
-  if (sentiment.fearGreedIndex < 20) {
-    confidence = Math.max(confidence - 10, 30)
-    if (shortTerm === 'buy') shortTerm = 'hold'
+  // Contrarian override: extreme fear (< 20) forces at least a hold on shorts
+  if (fng < 20 && shortTerm === 'sell') {
+    shortTerm = 'hold'
+    summary += ' | Contrarian override: extreme fear detected. Avoid shorting into panic.'
+  }
+
+  // Contrarian override: extreme greed (> 80) forces caution on longs
+  if (fng > 80 && shortTerm === 'buy') {
+    shortTerm = 'hold'
+    summary += ' | Contrarian override: extreme greed detected. Take profits on longs.'
   }
 
   return {
@@ -436,17 +440,17 @@ function buildVerdict(
 
 export function analyze(sources: RawSourceData[], asset: Asset = 'eth'): AnalysisResult {
   const priceData = parsePriceData(sources, asset)
-  const technical = parseTechnicalIndicators(priceData.price, priceData.change24h)
+  const timeframe = parseTimeframeData(sources)
+  const technical = parseTechnicalIndicators(priceData.price, priceData.change24h, timeframe)
   const onChain = parseOnChainData(sources, priceData.price)
   const sentiment = parseSentimentData(sources)
   const fundamental = parseFundamentalData()
   const orderBook = parseOrderBookData(sources)
   const whaleData = parseWhaleData(sources)
   const macro = parseMacroData(sources)
-  const timeframe = parseTimeframeData(sources)
-  const elliottWave = parseElliottWaveData(priceData.price, priceData.change24h, technical.trend)
-  const smc = parseSmcData(priceData.price, priceData.change24h, technical.trend, elliottWave)
-  const verdict = buildVerdict(priceData.price, technical, onChain, sentiment, orderBook, whaleData, timeframe, elliottWave, smc)
+  const elliottWave = parseElliottWaveData(sources)
+  const smc = parseSmcData(sources)
+  const verdict = buildVerdict(priceData.price, technical, onChain, sentiment, orderBook, whaleData, timeframe, elliottWave, smc, macro)
 
   const sourceInfoList: SourceInfo[] = sources.map((s) => ({
     name: s.name,
@@ -475,15 +479,13 @@ export function analyze(sources: RawSourceData[], asset: Asset = 'eth'): Analysi
       bearish: {
         target: roundPrice(priceData.price * 0.9),
         trigger: `Losing support at $${technical.supportLevels[0].toLocaleString()}`,
-        probability: 45,
+        probability: Math.max(10, Math.min(90, 50 - ((verdict.confidence - 50) / 2))),
       },
       bullish: {
         target: roundPrice(priceData.price * 1.15),
         trigger: `Breaking resistance at $${technical.resistanceLevels[0].toLocaleString()}`,
-        probability: 55,
+        probability: Math.max(10, Math.min(90, 50 + ((verdict.confidence - 50) / 2))),
       },
     },
   }
 }
-
-

@@ -1,0 +1,277 @@
+{
+  "asset": "eth",
+  "timestamp": "2026-06-03T12:00:00.000Z",
+  "priceData": {
+    "price": 1850.42,
+    "change24h": 3.27,
+    "high24h": 1924.44,
+    "low24h": 1776.4,
+    "volume24h": 15800000000,
+    "marketCap": 222050400000
+  },
+  "technical": {
+    "rsi": 62,
+    "macd": "bullish crossover",
+    "ma50": 1794.91,
+    "ma200": 1702.39,
+    "supportLevels": [
+      1758,
+      1665,
+      1573
+    ],
+    "resistanceLevels": [
+      1924,
+      1998,
+      2128
+    ],
+    "trend": "bullish"
+  },
+  "onChain": {
+    "fundingRate": 0.008,
+    "exchangeNetFlow": "outflows (-42K ETH)",
+    "stakingYield": 3.2,
+    "totalStaked": 34500000,
+    "exchangeReserve": 19200000,
+    "liquidationLevels": {
+      "long": 1998,
+      "short": 1702
+    }
+  },
+  "sentiment": {
+    "fearGreedIndex": 62,
+    "fearGreedLabel": "Greed",
+    "newsHeadlines": [
+      {
+        "title": "Ethereum ETF Inflows Surge Past  in Weekly Records",
+        "source": "CoinDesk",
+        "sentiment": "positive"
+      },
+      {
+        "title": "ETH Layer 2 TVL Hits All-Time High of ",
+        "source": "CoinTelegraph",
+        "sentiment": "positive"
+      },
+      {
+        "title": "Regulatory Clarity Boost for ETH Staking Products",
+        "source": "CoinDesk",
+        "sentiment": "positive"
+      }
+    ],
+    "socialVolume": 125000,
+    "socialSentiment": "bullish"
+  },
+  "fundamental": {
+    "defiTvl": 45800000000,
+    "stablecoinSupply": 82000000000,
+    "networkRevenue": 2400000000,
+    "activeAddresses": 520000,
+    "transactionCount": 1200000
+  },
+  "orderBook": {
+    "bidDepth": 18500,
+    "askDepth": 12200,
+    "bidAskRatio": 1.52,
+    "optionFlow": "Calls dominate",
+    "optionFlowSentiment": "bullish",
+    "maxPain": 1820
+  },
+  "whaleData": {
+    "largeTxns24h": 187,
+    "totalVolumeUsd": 425000000,
+    "accumulation": "accumulating",
+    "topWhaleNetFlow": "inflow (+124K ETH)",
+    "notableTxns": [
+      {
+        "hash": "0xabc...",
+        "value": 25000000,
+        "from": "Binance",
+        "to": "Unknown Whale",
+        "timestamp": "2026-06-03T11:30:00Z"
+      }
+    ]
+  },
+  "macro": {
+    "upcomingEvents": [
+      {
+        "name": "FOMC Interest Rate Decision",
+        "date": "Jun 11, 2026",
+        "impact": "high",
+        "expected": "Hold"
+      },
+      {
+        "name": "US CPI Data Release",
+        "date": "Jun 12, 2026",
+        "impact": "high",
+        "expected": "2.8% YoY"
+      }
+    ],
+    "marketContext": "Risk-on environment persists with strong institutional inflows",
+    "riskOn": true
+  },
+  "timeframe": {
+    "daily": {
+      "trend": "bullish",
+      "rsi": 62,
+      "maStatus": "Price above MA50 and MA200"
+    },
+    "fourHour": {
+      "trend": "bullish",
+      "rsi": 58,
+      "maStatus": "Price above MA50"
+    },
+    "oneHour": {
+      "trend": "neutral",
+      "rsi": 52,
+      "maStatus": "Testing MA50"
+    },
+    "alignment": "partial",
+    "dominantTrend": "bullish"
+  },
+  "elliottWave": {
+    "waveCount": "Wave 3 of (5)",
+    "trend": "impulse",
+    "currentWave": 3,
+    "completeness": 65,
+    "nextTarget": 2183,
+    "invalidationLevel": 1628,
+    "subWaves": [
+      {
+        "label": "W1",
+        "high": 1702,
+        "low": 1573
+      },
+      {
+        "label": "W2",
+        "high": 1758,
+        "low": 1665
+      },
+      {
+        "label": "W3",
+        "high": 2072,
+        "low": 1776
+      },
+      {
+        "label": "W4",
+        "high": 2035,
+        "low": 1943
+      },
+      {
+        "label": "W5",
+        "high": 2183,
+        "low": 1998
+      }
+    ],
+    "description": "Ethereum is in a strong Wave 3 impulse, the most powerful wave of the cycle. Expect continued upward momentum with targets near ,180."
+  },
+  "smc": {
+    "marketStructure": "uptrend",
+    "structureShift": false,
+    "lastBos": "bullish",
+    "orderBlocks": [
+      {
+        "type": "bullish",
+        "price": 1721,
+        "strength": "strong",
+        "touched": false
+      },
+      {
+        "type": "bullish",
+        "price": 1628,
+        "strength": "moderate",
+        "touched": true
+      }
+    ],
+    "fvgs": [
+      {
+        "type": "bullish",
+        "upper": 1887,
+        "lower": 1813,
+        "filled": false
+      }
+    ],
+    "liquidityAbove": 1943,
+    "liquidityBelow": 1758,
+    "description": "Market structure is bullish with a Break of Structure confirmed above ,760. Price is currently sweeping sell-side liquidity below recent lows before continuing higher."
+  },
+  "verdict": {
+    "shortTerm": "buy",
+    "longTerm": "buy",
+    "confidence": 78,
+    "summary": "Ethereum shows strong bullish momentum with institutional inflows, positive on-chain fundamentals, and favorable technical setup. The confluence of multiple factors suggests continued upside in both the short and long term.",
+    "keyLevels": {
+      "stopLoss": 1721,
+      "takeProfitShort": 2072,
+      "takeProfitLong": 2498
+    }
+  },
+  "sources": [
+    {
+      "name": "CoinGecko",
+      "url": "https://coingecko.com",
+      "status": "ok"
+    },
+    {
+      "name": "Fear & Greed Index",
+      "url": "https://alternative.me",
+      "status": "ok"
+    },
+    {
+      "name": "CoinMarketCap",
+      "url": "https://coinmarketcap.com",
+      "status": "ok"
+    },
+    {
+      "name": "DeFi Llama",
+      "url": "https://defillama.com",
+      "status": "ok"
+    },
+    {
+      "name": "CoinDesk",
+      "url": "https://coindesk.com",
+      "status": "ok"
+    },
+    {
+      "name": "CoinTelegraph",
+      "url": "https://cointelegraph.com",
+      "status": "ok"
+    },
+    {
+      "name": "Binance",
+      "url": "https://binance.com",
+      "status": "ok"
+    },
+    {
+      "name": "Etherscan",
+      "url": "https://etherscan.io",
+      "status": "ok"
+    },
+    {
+      "name": "TradingView",
+      "url": "https://tradingview.com",
+      "status": "ok"
+    },
+    {
+      "name": "Glassnode",
+      "url": "https://glassnode.com",
+      "status": "error",
+      "error": "Rate limited"
+    },
+    {
+      "name": "Coinglass",
+      "url": "https://coinglass.com",
+      "status": "ok"
+    }
+  ],
+  "scenarios": {
+    "bearish": {
+      "target": 1628,
+      "trigger": "Fed hawkish surprise or ETF outflows reverse momentum",
+      "probability": 30
+    },
+    "bullish": {
+      "target": 2183,
+      "trigger": "Continued ETF inflows and ETH staking narrative",
+      "probability": 70
+    }
+  }
+}
