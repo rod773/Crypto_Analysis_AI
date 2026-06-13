@@ -84,7 +84,7 @@ function VerdictCard({ verdict }: { verdict: AnalysisResult['verdict'] }) {
             </div>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <span className="text-xs">Confianza</span>
-              <span className="font-semibold font-mono text-foreground">{verdict.confidence}%</span>
+              <span className="font-semibold font-mono text-foreground">{verdict.confidence.toFixed(2)}%</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -185,7 +185,7 @@ function Scenarios({ scenarios }: { scenarios: AnalysisResult['scenarios'] }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-red-500">Bajista</span>
-            <Badge variant="outline" className="text-xs h-5 px-2 font-mono text-red-500/80 border-red-500/20 bg-red-500/5">{scenarios.bearish.probability}%</Badge>
+            <Badge variant="outline" className="text-xs h-5 px-2 font-mono text-red-500/80 border-red-500/20 bg-red-500/5">{scenarios.bearish.probability.toFixed(2)}%</Badge>
           </div>
           <div className="mt-0.5 text-sm text-muted-foreground">
             Objetivo: <span className="font-mono font-semibold text-red-400">${scenarios.bearish.target.toLocaleString()}</span>
@@ -200,7 +200,7 @@ function Scenarios({ scenarios }: { scenarios: AnalysisResult['scenarios'] }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-green-500">Alcista</span>
-            <Badge variant="outline" className="text-xs h-5 px-2 font-mono text-green-500/80 border-green-500/20 bg-green-500/5">{scenarios.bullish.probability}%</Badge>
+            <Badge variant="outline" className="text-xs h-5 px-2 font-mono text-green-500/80 border-green-500/20 bg-green-500/5">{scenarios.bullish.probability.toFixed(2)}%</Badge>
           </div>
           <div className="mt-0.5 text-sm text-muted-foreground">
             Objetivo: <span className="font-mono font-semibold text-green-400">${scenarios.bullish.target.toLocaleString()}</span>
