@@ -36,6 +36,19 @@ async function fetchJson(url: string, timeoutMs = 10000): Promise<unknown> {
 
 interface Kline { open: number; high: number; low: number; close: number; volume: number }
 
+interface DailySnapshot {
+  close: number
+  volume: number
+  high: number
+  low: number
+  change24h: number
+}
+
+const priceHistory: DailySnapshot[] = []
+let historySeeded = false
+let currentKlineHigh = 0
+let currentKlineLow = 0
+
 async function fetchBinanceKlines(symbol: string, interval: string, limit = 30): Promise<Kline[]> {
   const data = await fetchJson(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`) as string[][]
   return data.map((k) => ({
@@ -58,6 +71,159 @@ function calcRsi(closes: number[]): number {
 function calcMa(prices: number[], period: number): number {
   const slice = prices.slice(-period)
   return slice.reduce((a, b) => a + b, 0) / slice.length
+}
+
+function seedPriceHistory(klines: Kline[]) {
+  if (historySeeded || klines.length < 2) return
+  for (let i = 0; i < klines.length; i++) {
+    const prevClose = i > 0 ? klines[i - 1].close : klines[i].close
+    const change24h = ((klines[i].close - prevClose) / prevClose) * 100
+    priceHistory.push({
+      close: klines[i].close,
+      volume: klines[i].volume,
+      high: klines[i].high,
+      low: klines[i].low,
+      change24h,
+    })
+  }
+  if (priceHistory.length > 120) priceHistory.splice(0, priceHistory.length - 120)
+  historySeeded = true
+  const last = klines[klines.length - 1]
+  currentKlineHigh = last.high
+  currentKlineLow = last.low
+}
+
+function updatePriceHistory(price: number, volume: number, high: number, low: number, change24h: number) {
+  priceHistory.push({ close: price, volume, high, low, change24h })
+  if (priceHistory.length > 120) priceHistory.splice(0, priceHistory.length - 120)
+}
+
+function ema(values: number[], period: number): number[] {
+  if (values.length < period) return values.map(() => values.reduce((a, b) => a + b, 0) / values.length)
+  const k = 2 / (period + 1)
+  const result: number[] = []
+  result.push(values.slice(0, period).reduce((a, b) => a + b, 0) / period)
+  for (let i = period; i < values.length; i++) {
+    result.push(values[i] * k + result[result.length - 1] * (1 - k))
+  }
+  const pad = result[0]
+  while (result.length < values.length) result.unshift(pad)
+  return result
+}
+
+function sma(values: number[], period: number): number[] {
+  const result: number[] = []
+  for (let i = 0; i < values.length; i++) {
+    if (i < period - 1) {
+      result.push(values.slice(0, i + 1).reduce((a, b) => a + b, 0) / (i + 1))
+    } else {
+      result.push(values.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period)
+    }
+  }
+  return result
+}
+
+function calcRsiArray(closes: number[], period = 14): number[] {
+  if (closes.length < period + 1) return closes.map(() => 50)
+  const rsis: number[] = Array(period).fill(50)
+  for (let i = period; i < closes.length; i++) {
+    let gains = 0
+    let losses = 0
+    for (let j = i - period + 1; j <= i; j++) {
+      const diff = closes[j] - closes[j - 1]
+      if (diff > 0) gains += diff
+      else losses -= diff
+    }
+    const avgG = gains / period
+    const avgL = losses / period
+    rsis.push(avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL))
+  }
+  return rsis
+}
+
+function calcMacd(closes: number[]): { macdLine: number[]; signal: number[]; histogram: number[] } {
+  const fast = ema(closes.slice(), 12)
+  const slow = ema(closes.slice(), 26)
+  const macdLine = fast.map((f, i) => f - slow[i])
+  const signal = ema(macdLine.slice(), 9)
+  const histogram = macdLine.map((m, i) => m - signal[i])
+  return { macdLine, signal, histogram }
+}
+
+function generatePredictiveSignal(): {
+  direction: 'buy' | 'sell' | 'hold'
+  reason: string
+  score: number
+  confidence: number
+} {
+  if (priceHistory.length < 30) return { direction: 'hold', reason: 'insufficient_data', score: 0, confidence: 50 }
+
+  const closes = priceHistory.map((s) => s.close)
+  const volumes = priceHistory.map((s) => s.volume)
+  const idx = closes.length - 1
+
+  const rsiVals = calcRsiArray(closes)
+  const { macdLine, signal, histogram } = calcMacd(closes)
+  const ma50 = sma(closes, 50)
+
+  const cur = idx
+
+  let bullishDiv = false
+  let bearishDiv = false
+  if (idx > 20) {
+    const step = 3
+    const samples: number[] = []
+    for (let s = idx - 10; s <= idx; s += step) samples.push(s)
+    if (samples.length >= 2) {
+      const last = samples.length - 1
+      const pLow1 = priceHistory[samples[last - 1]]?.low ?? 0
+      const pLow2 = priceHistory[samples[last]]?.low ?? 0
+      const rLow1 = rsiVals[samples[last - 1]] ?? 50
+      const rLow2 = rsiVals[samples[last]] ?? 50
+      if (pLow1 > pLow2 && rLow1 < rLow2) bullishDiv = true
+      if (pLow1 < pLow2 && rLow1 > rLow2) bearishDiv = true
+    }
+  }
+
+  const histGrowing = histogram[cur] > (histogram[cur - 2] ?? histogram[cur])
+  const histDeclining = histogram[cur] < (histogram[cur - 2] ?? histogram[cur])
+  const macdBuy = histGrowing && macdLine[cur] < signal[cur]
+  const macdSell = histDeclining && macdLine[cur] > signal[cur]
+
+  const recentVols = volumes.slice(-20)
+  const avgVol = recentVols.reduce((a, b) => a + b, 0) / recentVols.length
+  const volSpike = volumes[cur] > avgVol * 1.5
+
+  let buyScore = 0
+  let sellScore = 0
+
+  if (bullishDiv) buyScore += 3
+  if (macdBuy) buyScore += 2
+  if (ma50[cur] && closes[cur] > ma50[cur]) buyScore += 1
+  if (rsiVals[cur] < 35) buyScore += 1
+  if (volSpike) buyScore += 1
+
+  if (bearishDiv) sellScore += 3
+  if (macdSell) sellScore += 2
+  if (ma50[cur] && closes[cur] < ma50[cur]) sellScore += 1
+  if (rsiVals[cur] > 65) sellScore += 1
+  if (volSpike) sellScore += 1
+
+  let direction: 'buy' | 'sell' | 'hold' = 'hold'
+  let reason = ''
+  let confidence = 50
+
+  if (buyScore > sellScore && buyScore >= 3) {
+    direction = 'buy'
+    reason = bullishDiv ? 'divergence' : 'momentum'
+    confidence = Math.min(92, 55 + buyScore * 8)
+  } else if (sellScore > buyScore && sellScore >= 3) {
+    direction = 'sell'
+    reason = bearishDiv ? 'divergence' : 'momentum'
+    confidence = Math.min(92, 55 + sellScore * 8)
+  }
+
+  return { direction, reason, score: Math.max(buyScore, sellScore), confidence }
 }
 
 function findSmcPatterns(closes: number[], highs: number[], lows: number[], volumes: number[]) {
@@ -279,14 +445,82 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
 
   await Promise.allSettled(results)
 
-  const high24h = roundPrice(price * 1.04); const low24h = roundPrice(price * 0.96)
+  // ── Predictive Signal Engine (mirrors analysis.ts) ──
+  if (klines1d.length >= 30) {
+    if (!historySeeded) seedPriceHistory(klines1d)
+    const last = klines1d[klines1d.length - 1]
+    currentKlineHigh = last.high
+    currentKlineLow = last.low
+  }
+
+  // Use real kline high/low when available (instead of synthetic price * 1.04 / 0.96)
+  const realHigh = currentKlineHigh > 0 ? currentKlineHigh : roundPrice(price * 1.04)
+  const realLow = currentKlineLow > 0 ? currentKlineLow : roundPrice(price * 0.96)
+  const high24h = realHigh
+  const low24h = realLow
+
+  // Build the verdict using the predictive signal
+  if (klines1d.length >= 30) {
+    updatePriceHistory(price, volume24h, high24h, low24h, change24h)
+  }
+
+  const signal = generatePredictiveSignal()
+  const fng = fearGreed
+
+  let shortTerm: 'buy' | 'sell' | 'hold'
+  let longTerm: 'buy' | 'sell' | 'hold'
+  let confidence: number
+  let summary: string
+  let stopLoss: number
+  let takeProfitShort: number
+  let takeProfitLong: number
+
+  if (signal.direction === 'buy') {
+    shortTerm = 'buy'
+    longTerm = 'buy'
+    confidence = signal.confidence
+    stopLoss = roundPrice(price * 0.94)
+    takeProfitShort = roundPrice(price * 1.12)
+    takeProfitLong = roundPrice(price * 1.28)
+    summary = `Compra por ${signal.reason === 'divergence' ? 'divergencia alcista RSI' : 'momentum MACD'}`
+    summary += `. Score: ${signal.score}. Soporte multi-timeframe y estructura favorable.`
+  } else if (signal.direction === 'sell') {
+    shortTerm = 'sell'
+    longTerm = 'hold'
+    confidence = signal.confidence
+    stopLoss = roundPrice(price * 1.06)
+    takeProfitShort = roundPrice(price * 0.90)
+    takeProfitLong = roundPrice(price * 1.05)
+    summary = `Venta por ${signal.reason === 'divergence' ? 'divergencia bajista RSI' : 'señal MACD'}`
+    summary += `. Score: ${signal.score}. Riesgo de corrección a corto plazo.`
+  } else {
+    shortTerm = 'hold'
+    longTerm = 'hold'
+    confidence = 50
+    stopLoss = roundPrice(price * 0.93)
+    takeProfitShort = roundPrice(price * 1.06)
+    takeProfitLong = roundPrice(price * 1.15)
+    summary = 'Sin señal clara. Esperando divergencia o cruce MACD con volumen.'
+  }
+
+  // Contrarian overrides
+  if (fng < 20 && shortTerm === 'sell') {
+    shortTerm = 'hold'
+    summary += ' | Override: fear extremo, no vender.'
+  }
+  if (fng > 80 && shortTerm === 'buy') {
+    shortTerm = 'hold'
+    summary += ' | Override: greed extremo, tomar ganancias.'
+  }
+
+  // ── Compute data for the result object ──
   const trend = change24h > 2 ? 'bullish' : change24h < -2 ? 'bearish' : 'neutral'
 
   const dailyCloses = klines1d.map((k) => k.close)
   const fourHourCloses = klines4h.map((k) => k.close)
   const oneHourCloses = klines1h.map((k) => k.close)
 
-  const dailyRsi = dailyCloses.length > 14 ? calcRsi(dailyCloses) : 50
+  const dailyRsiNum = dailyCloses.length > 14 ? calcRsi(dailyCloses) : 50
   const fourHourRsi = fourHourCloses.length > 14 ? calcRsi(fourHourCloses) : 50
   const oneHourRsi = oneHourCloses.length > 14 ? calcRsi(oneHourCloses) : 50
 
@@ -297,9 +531,11 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
   const dailyMa50 = dailyCloses.length > 0 ? calcMa(dailyCloses, Math.min(50, dailyCloses.length)) : price
   const dailyMa200 = dailyCloses.length > 0 ? calcMa(dailyCloses, Math.min(200, dailyCloses.length)) : price
 
-  const dailyTrend = dailyRsi > 55 ? 'bullish' : dailyRsi < 45 ? 'bearish' : 'neutral' as const
-  const fourHourTrend = fourHourRsi > 55 ? 'bullish' : fourHourRsi < 45 ? 'bearish' : 'neutral' as const
-  const oneHourTrend = oneHourRsi > 55 ? 'bullish' : oneHourRsi < 45 ? 'bearish' : 'neutral' as const
+  const dailyTrend = dailyRsiNum > 55 ? 'bullish' : dailyRsiNum < 45 ? 'bearish' : 'neutral'
+  const dailyRsi = dailyRsiNum
+
+  const fourHourTrend = fourHourRsi > 55 ? 'bullish' : fourHourRsi < 45 ? 'bearish' : 'neutral'
+  const oneHourTrend = oneHourRsi > 55 ? 'bullish' : oneHourRsi < 45 ? 'bearish' : 'neutral'
 
   const trends = [dailyTrend, fourHourTrend, oneHourTrend]
   const unique = new Set(trends)
@@ -312,171 +548,33 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
   const fourHourMa50 = fourHourCloses.length > 0 ? calcMa(fourHourCloses, Math.min(50, fourHourCloses.length)) : price
   const oneHourMa50 = oneHourCloses.length > 0 ? calcMa(oneHourCloses, Math.min(50, oneHourCloses.length)) : price
 
-  const supportLow = roundPrice(price * 0.95); const supportMid = roundPrice(price * 0.90); const supportHigh = roundPrice(price * 0.85)
-  const resistanceLow = roundPrice(price * 1.04); const resistanceMid = roundPrice(price * 1.08); const resistanceHigh = roundPrice(price * 1.15)
+  const supportLow = roundPrice(price * 0.95)
+  const supportMid = roundPrice(price * 0.90)
+  const supportHigh = roundPrice(price * 0.85)
+  const resistanceLow = roundPrice(price * 1.04)
+  const resistanceMid = roundPrice(price * 1.08)
+  const resistanceHigh = roundPrice(price * 1.15)
 
-  const clampedRsi = Math.max(15, Math.min(85, dailyRsi))
+  const clampedRsi = Math.max(15, Math.min(85, dailyRsiNum))
 
-  // Elliott Wave & SMC from Binance 1d klines
   const ewData = klines1d.length >= 30
-    ? findElliottWaves(
-        klines1d.map((k) => k.close),
-        klines1d.map((k) => k.high),
-        klines1d.map((k) => k.low),
-      )
+    ? findElliottWaves(dailyCloses, klines1d.map((k) => k.high), klines1d.map((k) => k.low))
     : null
 
   const smcData = klines1d.length >= 20
-    ? findSmcPatterns(
-        klines1d.map((k) => k.close),
-        klines1d.map((k) => k.high),
-        klines1d.map((k) => k.low),
-        klines1d.map((k) => k.volume),
-      )
+    ? findSmcPatterns(dailyCloses, klines1d.map((k) => k.high), klines1d.map((k) => k.low), klines1d.map((k) => k.volume))
     : null
 
   const bidAskRatio = askDepth > 0 ? Math.round((bidDepth / askDepth) * 100) / 100 : 1
 
-  // Build on-chain estimates
   const fundingRate = Math.round((0.005 + Math.random() * 0.015) * 10000) / 10000
   const exchangeNetFlow = fundingRate > 0.01 ? 'outflows (-)' : 'inflows (+)'
   const stakingYield = asset === 'eth' ? 3.2 : 0
   const totalStaked = asset === 'eth' ? 34_500_000 : 0
   const exchangeReserve = Math.round(price * 120_000_000 * 0.08)
 
-  // Whale estimate from volume
   const estimatedWhaleTxns = volume24h > 10_000_000_000 ? Math.round(volume24h / 500_000_000) : 5
-  const whaleVolume = volume24h * 0.35 // ~35% of volume is whale activity
-
-  // ── Winning Predictive Strategy (weighted multi-factor score) ──
-  function calcWeightedClientScore(): {
-    netScore: number; buyScore: number; sellScore: number
-    buyWeight: number; sellWeight: number
-  } {
-    let buyScore = 0, sellScore = 0, buyWeight = 0, sellWeight = 0
-
-    // 1. RSI Momentum (15%)
-    if (clampedRsi < 30) { buyScore += 3; buyWeight += 15 }
-    else if (clampedRsi < 40) { buyScore += 2; buyWeight += 10 }
-    else if (clampedRsi > 70) { sellScore += 3; sellWeight += 15 }
-    else if (clampedRsi > 60) { sellScore += 2; sellWeight += 10 }
-
-    // 2. Trend Direction (20%)
-    if (trend === 'bullish') { buyScore += 3; buyWeight += 20 }
-    else if (trend === 'bearish') { sellScore += 3; sellWeight += 20 }
-
-    // 3. Multi-Timeframe Alignment (20%)
-    if (alignment === 'aligned') {
-      if (dominantTrend === 'bullish') { buyScore += 3; buyWeight += 20 }
-      else if (dominantTrend === 'bearish') { sellScore += 3; sellWeight += 20 }
-    } else if (alignment === 'partial') {
-      if (dominantTrend === 'bullish') { buyScore += 1; buyWeight += 8 }
-      else if (dominantTrend === 'bearish') { sellScore += 1; sellWeight += 8 }
-    }
-
-    // 4. SMC Structure (15%)
-    if (smcData?.marketStructure === 'uptrend' && smcData?.lastBos === 'bullish') { buyScore += 3; buyWeight += 15 }
-    else if (smcData?.marketStructure === 'downtrend' && smcData?.lastBos === 'bearish') { sellScore += 3; sellWeight += 15 }
-    else if (smcData?.marketStructure === 'uptrend') { buyScore += 2; buyWeight += 10 }
-    else if (smcData?.marketStructure === 'downtrend') { sellScore += 2; sellWeight += 10 }
-
-    // 5. Elliott Wave (10%)
-    if (ewData?.trend === 'impulse') {
-      if ((ewData?.currentWave ?? 5) <= 3) { buyScore += 2; buyWeight += 10 }
-      else if ((ewData?.currentWave ?? 5) === 4) { buyScore += 1; buyWeight += 5 }
-    } else if (ewData?.trend === 'corrective') {
-      if ((ewData?.currentWave ?? 1) >= 3) { sellScore += 2; sellWeight += 10 }
-      else { sellScore += 1; sellWeight += 5 }
-    }
-
-    // 6. Fear & Greed - Contrarian (10%)
-    if (fearGreed < 20) { buyScore += 2; buyWeight += 10 }
-    else if (fearGreed < 30) { buyScore += 1; buyWeight += 5 }
-    else if (fearGreed > 80) { sellScore += 2; sellWeight += 10 }
-    else if (fearGreed > 70) { sellScore += 1; sellWeight += 5 }
-
-    // 7. Order Book Flow (5%)
-    if (bidAskRatio > 1.2) { buyScore += 2; buyWeight += 5 }
-    else if (bidAskRatio > 1.05) { buyScore += 1; buyWeight += 3 }
-    else if (bidAskRatio < 0.8) { sellScore += 2; sellWeight += 5 }
-    else if (bidAskRatio < 0.95) { sellScore += 1; sellWeight += 3 }
-
-    // 8. Funding (5%)
-    if (fundingRate > 0.05) { sellScore += 1; sellWeight += 5 }
-    else if (fundingRate < -0.02) { buyScore += 1; buyWeight += 5 }
-
-    const totalBuy = buyScore * (buyWeight / 100)
-    const totalSell = sellScore * (sellWeight / 100)
-    const maxPossible = Math.max(buyWeight, sellWeight) / 100 * 3
-    const netScore = maxPossible > 0 ? ((totalBuy - totalSell) / maxPossible) * 50 : 0
-
-    return { netScore, buyScore, sellScore, buyWeight, sellWeight }
-  }
-
-  const score = calcWeightedClientScore()
-  const netScore = score.netScore
-
-  let shortTerm: 'buy' | 'sell' | 'hold'
-  let longTerm: 'buy' | 'sell' | 'hold'
-  let confidence: number
-  let summary: string
-  let stopLoss: number
-  let takeProfitShort: number
-  let takeProfitLong: number
-
-  // Strong Buy: +30 or more
-  if (netScore >= 30) {
-    shortTerm = 'buy'; longTerm = 'buy'
-    confidence = Math.min(92, 65 + netScore * 0.6)
-    summary = `Winning signal: Strong bullish convergence. ${score.buyScore}/${score.buyWeight}W buy factors vs ${score.sellScore}/${score.sellWeight}W sell. ${smcData?.marketStructure ?? 'neutral'} structure, ${ewData?.trend ?? 'neutral'} wave, ${dominantTrend} alignment. High-probability upward move expected.`
-    stopLoss = roundPrice(price * 0.935); takeProfitShort = roundPrice(price * 1.14); takeProfitLong = roundPrice(price * 1.32)
-  }
-  // Moderate Buy: +10 to +29
-  else if (netScore >= 10) {
-    shortTerm = 'hold'; longTerm = 'buy'
-    confidence = Math.min(78, 50 + netScore * 0.7)
-    summary = `Bullish bias confirmed. ${score.buyScore} buy signals vs ${score.sellScore} sell. ${smcData?.marketStructure ?? 'neutral'} market structure with ${dominantTrend} trend alignment. Good accumulation zone for long-term positions.`
-    stopLoss = roundPrice(price * 0.925); takeProfitShort = roundPrice(price * 1.10); takeProfitLong = roundPrice(price * 1.28)
-  }
-  // Weak Bullish / Neutral: 0 to +9
-  else if (netScore >= 0) {
-    shortTerm = 'hold'; longTerm = 'hold'
-    confidence = Math.min(60, 45 + netScore * 1.5)
-    summary = `Cautious outlook. Mild bullish edge (${netScore.toFixed(1)}) but not enough conviction. ${dominantTrend} dominant trend. Watch for a breakout above resistance or wait for deeper discount before committing.`
-    stopLoss = roundPrice(price * 0.91); takeProfitShort = roundPrice(price * 1.06); takeProfitLong = roundPrice(price * 1.18)
-  }
-  // Weak Bearish / Neutral: -9 to -1
-  else if (netScore > -20) {
-    shortTerm = 'hold'; longTerm = 'hold'
-    confidence = Math.min(60, 45 + Math.abs(netScore) * 1.5)
-    summary = `Defensive stance. Mild bearish edge (${netScore.toFixed(1)}). ${dominantTrend} trend with ${smcData?.marketStructure ?? 'neutral'} structure. Avoid fresh exposure until a clearer bullish setup emerges.`
-    stopLoss = roundPrice(price * 1.04); takeProfitShort = roundPrice(price * 0.95); takeProfitLong = roundPrice(price * 1.08)
-  }
-  // Moderate Sell: -35 to -20
-  else if (netScore >= -50) {
-    shortTerm = 'sell'; longTerm = 'hold'
-    confidence = Math.min(78, 50 + Math.abs(netScore) * 0.5)
-    summary = `Bearish bias building. ${score.sellScore} sell signals vs ${score.buyScore} buy. ${smcData?.marketStructure ?? 'neutral'} structure, ${ewData?.trend ?? 'neutral'} corrective phase. Reduce long exposure and wait for better entries.`
-    stopLoss = roundPrice(price * 1.065); takeProfitShort = roundPrice(price * 0.90); takeProfitLong = roundPrice(price * 1.05)
-  }
-  // Strong Sell: below -50
-  else {
-    shortTerm = 'sell'; longTerm = 'sell'
-    confidence = Math.min(92, 65 + Math.abs(netScore) * 0.4)
-    summary = `Winning signal: Strong bearish convergence. ${score.sellScore}/${score.sellWeight}W sell factors vs ${score.buyScore}/${score.buyWeight}W buy. ${smcData?.marketStructure ?? 'neutral'} breakdown, ${ewData?.trend ?? 'neutral'} wave, ${dominantTrend} alignment. High-probability downward move expected.`
-    stopLoss = roundPrice(price * 1.08); takeProfitShort = roundPrice(price * 0.86); takeProfitLong = roundPrice(price * 0.78)
-  }
-
-  // Contrarian override: extreme fear (< 20)
-  if (fearGreed < 20 && shortTerm === 'sell') {
-    shortTerm = 'hold'
-    summary += ' | Contrarian override: extreme fear detected. Avoid shorting into panic.'
-  }
-  // Contrarian override: extreme greed (> 80)
-  if (fearGreed > 80 && shortTerm === 'buy') {
-    shortTerm = 'hold'
-    summary += ' | Contrarian override: extreme greed detected. Take profits on longs.'
-  }
+  const whaleVolume = volume24h * 0.35
 
   return {
     asset,
@@ -540,7 +638,7 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
     },
     macro: {
       upcomingEvents: [],
-      marketContext: 'AnÃ¡lisis en tiempo real desde fuentes pÃºblicas.',
+      marketContext: 'Análisis en tiempo real desde fuentes públicas.',
       riskOn: fearGreed > 40,
     },
     timeframe: {

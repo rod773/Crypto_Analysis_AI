@@ -298,6 +298,7 @@ async function scrapeMultiTimeframe(asset: AssetConfig): Promise<RawSourceData> 
         fourHour: { trend: fourHourTrend, rsi: fourHourRsi, maStatus: last4h > calcMa(fourHourCloses, Math.min(50, fourHourCloses.length)) ? 'above 50 MA' : 'below 50 MA' },
         oneHour: { trend: oneHourTrend, rsi: oneHourRsi, maStatus: last1h > calcMa(oneHourCloses, Math.min(50, oneHourCloses.length)) ? 'above 50 MA' : 'below 50 MA' },
         alignment, dominantTrend,
+        klines: daily,
       },
     }
   } catch (e) {
@@ -592,10 +593,9 @@ function findElliottWaves(closes: number[], highs: number[], lows: number[]): {
   let invalidationLevel: number
   let completeness: number
   let description: string
-  let subWaves: { label: string; high: number; low: number }[]
 
   // Build sub-waves from pivots
-  subWaves = filtered.slice(-8).map((p, i) => ({
+  const subWaves = filtered.slice(-8).map((p, i) => ({
     label: `P${i + 1} ${p.type === 'high' ? '▲' : '▼'}`,
     high: p.price,
     low: p.price,
