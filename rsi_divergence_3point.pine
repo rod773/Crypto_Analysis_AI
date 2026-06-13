@@ -1,0 +1,69 @@
+//@version=6
+indicator("RSI Divergence (3-Point Heuristic)", overlay=true, max_labels_count=500)
+
+// ── Parameters ──
+rsiLen = input.int(14, "RSI Period")
+rsiOb = input.int(70, "RSI Overbought")
+rsiOs = input.int(30, "RSI Oversold")
+
+// ── RSI ──
+rsiVal = ta.rsi(close, rsiLen)
+
+// ── Divergence Detection ──
+// Samples 3 points over the last ~10 candles (step=3, range idx-10 to idx)
+// then compares the last 2 sample points
+bullishDiv = false
+bearishDiv = false
+divLabel = ""
+
+if bar_index > 20
+    idx0 = bar_index - 10
+    idx1 = bar_index - 7
+    idx2 = bar_index - 4
+    idx3 = bar_index - 1
+
+    p0 = ta.valuewhen(bar_index == idx0, low, 0)
+    p1 = ta.valuewhen(bar_index == idx1, low, 0)
+    p2 = ta.valuewhen(bar_index == idx2, low, 0)
+    p3 = ta.valuewhen(bar_index == idx3, low, 0)
+    r0 = ta.valuewhen(bar_index == idx0, rsiVal, 0)
+    r1 = ta.valuewhen(bar_index == idx1, rsiVal, 0)
+    r2 = ta.valuewhen(bar_index == idx2, rsiVal, 0)
+    r3 = ta.valuewhen(bar_index == idx3, rsiVal, 0)
+
+    if not na(p3) and not na(p2) and not na(r3) and not na(r2)
+        // Bullish: price lower low, RSI higher low
+        if p2 > p3 and r2 < r3
+            bullishDiv := true
+            divLabel := "BULL DIV"
+        // Bearish: price higher low, RSI lower low
+        if p2 < p3 and r2 > r3
+            bearishDiv := true
+            divLabel := "BEAR DIV"
+
+// ── Plot on Price ──
+plotshape(bullishDiv, style=shape.labelup, location=location.belowbar,
+          color=color.new(#22c55e, 0), size=size.small,
+          text="B", textcolor=color.white)
+plotshape(bearishDiv, style=shape.labeldown, location=location.abovebar,
+          color=color.new(#ef4444, 0), size=size.small,
+          text="S", textcolor=color.white)
+
+// ── RSI Panel ──
+var rsiPanel = table.new(position.top_right, 2, 2,
+                         bgcolor=color.new(#131722, 85),
+                         border_color=color.new(#636d7d, 50))
+if bar_index == last_bar_index - 1
+    table.cell(rsiPanel, 0, 0, "RSI", text_color=color.white, text_size=size.small)
+    rsiColor = rsiVal > rsiOb ? color.red : rsiVal < rsiOs ? color.lime : color.white
+    table.cell(rsiPanel, 1, 0, str.tostring(math.round(rsiVal, 1)),
+               text_color=rsiColor, text_size=size.small)
+    table.cell(rsiPanel, 0, 1, "Signal", text_color=color.white, text_size=size.small)
+    sigColor = bullishDiv ? color.lime : bearishDiv ? color.red : color.gray
+    table.cell(rsiPanel, 1, 1, divLabel, text_color=sigColor, text_size=size.small)
+
+// ── Alerts ──
+alertcondition(bullishDiv, title="Bullish Divergence",
+               message="Bullish RSI Divergence on {{ticker}} at {{close}}")
+alertcondition(bearishDiv, title="Bearish Divergence",
+               message="Bearish RSI Divergence on {{ticker}} at {{close}}")
