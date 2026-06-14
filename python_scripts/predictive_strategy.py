@@ -64,69 +64,48 @@ def generate_signal(candles: List[Candle], idx: int) -> Tuple[str, str, float, f
     Returns (direction, reason, stop_loss, take_profit).
     direction: 'buy' | 'sell' | 'hold'
     """
-    if idx < 30:
+    # Need at least two candles to compute 24‑hour change
+    if idx < 1 or idx >= len(candles):
         return "hold", "", 0, 0
 
-    closes = [c.c for c in candles[:idx + 1]]
-    volumes = [c.v for c in candles[:idx + 1]]
+    price = candles[idx].c
+    prev_price = candles[idx - 1].c
+    change24h = ((price - prev_price) / prev_price) * 100 if prev_price != 0 else 0
 
-    rsi_vals = rsi(closes)
-    macd_l, macd_sig, hist = macd_vals(closes)
-    ma50 = ma(closes, 50)
+    # Synthetic RSI based on 24‑hour change
+    rsi_raw = 50 + change24h * 1.5
+    rsi_val = max(15, min(85, round(rsi_raw)))
 
-    cur = idx
-    price = candles[cur].c
+    # Synthetic MACD derived from RSI (not used for final signal)
+    if rsi_val > 60:
+        macd = "bullish crossover"
+    elif rsi_val < 40:
+        macd = "bearish crossover"
+    else:
+        macd = "neutral"
 
-    # Divergence check (last ~10 candles, 3 sample points)
-    bullish, bearish = False, False
-    if idx > 20:
-        recent_lows = [(i, candles[i].l) for i in range(idx - 10, idx + 1, 3)]
-        if len(recent_lows) >= 2:
-            p_lows = recent_lows[-2:]
-            r_lows = [(i, rsi_vals[i]) for i, _ in recent_lows[-2:]]
-            if p_lows[0][1] > p_lows[1][1] and r_lows[0][1] < r_lows[1][1]:
-                bullish = True
-            if p_lows[0][1] < p_lows[1][1] and r_lows[0][1] > r_lows[1][1]:
-                bearish = True
+    # Synthetic trend
+    if change24h > 2:
+        trend = "bullish"
+    elif change24h < -2:
+        trend = "bearish"
+    else:
+        trend = "neutral"
 
-    # MACD Signal Prediction
-    hist_growing = hist[cur] > hist[cur - 2]
-    hist_declining = hist[cur] < hist[cur - 2]
-    macd_buy = hist_growing and macd_l[cur] < macd_sig[cur]
-    macd_sell = hist_declining and macd_l[cur] > macd_sig[cur]
+    # Direction based on trend only (matches EA logic)
+    if trend == "bullish":
+        direction = "buy"
+        sl = price * 0.95  # support level
+        tp = price * 1.04  # resistance level
+        reason = "heuristic"
+    elif trend == "bearish":
+        direction = "sell"
+        sl = price * 1.04  # resistance level as stop‑loss for short
+        tp = price * 0.95  # support level as take‑profit for short
+        reason = "heuristic"
+    else:
+        direction = "hold"
+        sl = tp = 0
+        reason = ""
 
-    # Volume
-    avg_vol = sum(volumes[-20:]) / 20
-    vol = volumes[-1]
-
-    # Scoring
-    buy_score, sell_score = 0, 0
-    if bullish:
-        buy_score += 3
-    if macd_buy:
-        buy_score += 2
-    if ma50[cur] and price > ma50[cur]:
-        buy_score += 1
-    if rsi_vals[cur] < 35:
-        buy_score += 1
-    if vol > avg_vol * 1.5:
-        buy_score += 1
-
-    if bearish:
-        sell_score += 3
-    if macd_sell:
-        sell_score += 2
-    if ma50[cur] and price < ma50[cur]:
-        sell_score += 1
-    if rsi_vals[cur] > 65:
-        sell_score += 1
-    if vol > avg_vol * 1.5:
-        sell_score += 1
-
-    # Entry thresholds
-    if buy_score > sell_score and buy_score >= 3:
-        return "buy", "div" if bullish else "macd", price * 0.94, price * 1.12
-    if sell_score > buy_score and sell_score >= 3:
-        return "sell", "div" if bearish else "macd", price * 1.06, price * 0.9
-
-    return "hold", "", 0, 0
+    return direction, reason, sl, tp

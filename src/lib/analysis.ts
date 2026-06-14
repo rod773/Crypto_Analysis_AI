@@ -133,9 +133,9 @@ function generatePredictiveSignal(): {
   // Synthetic trend
   const trend: 'bullish' | 'bearish' | 'neutral' = change24h > 2 ? 'bullish' : change24h < -2 ? 'bearish' : 'neutral'
 
-  let direction: 'buy' | 'sell' | 'hold' = 'hold'
-  if (macd === 'bullish crossover' && trend === 'bullish') direction = 'buy'
-  else if (macd === 'bearish crossover' && trend === 'bearish') direction = 'sell'
+let direction: 'buy' | 'sell' | 'hold' = 'hold'
+    if (trend === 'bullish') direction = 'buy'
+    else if (trend === 'bearish') direction = 'sell'
 
   const reason = direction === 'hold' ? '' : 'heuristic'
   const score = direction === 'hold' ? 0 : 3
