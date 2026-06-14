@@ -11,6 +11,7 @@ const CACHE_PAGES = "crypto-ai-pages-v2";
 
 const CORE_ASSETS = [
   "/",
+  "/about/",
   "/manifest.json",
   "/icon-192x192.png",
   "/icon-512x512.png",
@@ -95,7 +96,7 @@ async function handleNavigation(request) {
     const cached = await cache.match(request);
     if (cached) return cached;
 
-    // Último recurso: devolver página raíz cacheada (mejor que nada)
+    // Fallback: devolver página raíz cacheada (mejor que nada)
     const rootFallback = await caches.match("/");
     if (rootFallback) return rootFallback;
 

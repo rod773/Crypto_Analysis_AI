@@ -44,11 +44,12 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="512x512" href="/icon-512x512.png" />
         <meta name="theme-color" content="#011627" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="default"
-        />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Crypto AI" />
+        <meta name="application-name" content="Crypto AI" />
+        <meta name="msapplication-TileColor" content="#011627" />
+        <meta name="msapplication-tap-highlight" content="no" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground selection:bg-cyber/20 selection:text-foreground">
         <ServiceWorkerRegister />

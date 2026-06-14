@@ -142,7 +142,7 @@
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% center; }
+  0% { background-position: -20% center; }
   100% { background-position: 200% center; }
 }
 
@@ -156,6 +156,32 @@
 
 @utility animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Mobile safe areas and responsive typography */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+    /* Prevent pull-to-refresh on mobile that can feel janky inside PWAs */
+    overscroll-behavior-y: none;
+  }
+  body {
+    min-height: 100dvh; /* dynamic viewport for mobile chrome */
+    overflow-x: hidden;
+  }
+  /* Ensure inputs don't zoom on iOS */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  /* Disable text selection on interactive elements to feel more app-like */
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    touch-action: manipulation;
+  }
 }
 
 @layer base {
