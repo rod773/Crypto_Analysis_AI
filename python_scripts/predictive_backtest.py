@@ -13,8 +13,8 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Tuple
 
 # ─── CONFIG ─────────────────────────────────────────────────────────────────
-SYMBOL = "ETHUSDT"; INTERVAL = "1d"
-START = "2024-06-13"; END = "2025-06-13"
+SYMBOL = "ETHUSDT"; INTERVAL = "1m"
+START = "2024-06-13"; END = "2024-06-14"
 INITIAL_CAPITAL = 10000.0; FEE_PCT = 0.001
 
 @dataclass 
@@ -34,7 +34,7 @@ class State:
 def fetch(symbol: str, start: str, end: str) -> List[Candle]:
     s = int(datetime.strptime(start, "%Y-%m-%d").timestamp()) * 1000
     e = int(datetime.strptime(end, "%Y-%m-%d").timestamp()) * 1000
-    url = (f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1d"
+    url = (f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={INTERVAL}"
            f"&startTime={s}&endTime={e}&limit=1000")
     data = json.loads(urllib.request.urlopen(url, timeout=30).read().decode())
     return [Candle(int(k[0]), float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5])) for k in data]

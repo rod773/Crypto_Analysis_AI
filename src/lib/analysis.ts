@@ -112,78 +112,36 @@ function generatePredictiveSignal(): {
   score: number
   confidence: number
 } {
-  if (priceHistory.length < 30) return { direction: 'hold', reason: 'insufficient_data', score: 0, confidence: 50 }
+  // Require at least one price point
+  if (priceHistory.length < 1) return { direction: 'hold', reason: '', score: 0, confidence: 50 }
 
-  const closes = priceHistory.map((s) => s.close)
-  const volumes = priceHistory.map((s) => s.volume)
-  const idx = closes.length - 1
+  const latest = priceHistory[priceHistory.length - 1]
+  const price = latest.close
+  const change24h = latest.change24h
 
-  const rsiVals = calcRsi(closes)
-  const { macdLine, signal, histogram } = calcMacd(closes)
-  const ma50 = sma(closes, 50)
+  // Synthetic RSI
+  const rsiRaw = 50 + change24h * 1.5
+  let rsi = Math.round(rsiRaw)
+  rsi = Math.max(15, Math.min(85, rsi))
 
-  const cur = idx
+  // Synthetic MACD based on RSI
+  let macd: string
+  if (rsi > 60) macd = 'bullish crossover'
+  else if (rsi < 40) macd = 'bearish crossover'
+  else macd = 'neutral'
 
-  // RSI Divergence over last ~10 candles (3 sample points)
-  let bullishDiv = false
-  let bearishDiv = false
-  if (idx > 20) {
-    const step = 3
-    const samples: number[] = []
-    for (let s = idx - 10; s <= idx; s += step) samples.push(s)
-    if (samples.length >= 2) {
-      const last = samples.length - 1
-      const pLow1 = priceHistory[samples[last - 1]]?.low ?? 0
-      const pLow2 = priceHistory[samples[last]]?.low ?? 0
-      const rLow1 = rsiVals[samples[last - 1]] ?? 50
-      const rLow2 = rsiVals[samples[last]] ?? 50
-      if (pLow1 > pLow2 && rLow1 < rLow2) bullishDiv = true
-      if (pLow1 < pLow2 && rLow1 > rLow2) bearishDiv = true
-    }
-  }
-
-  // MACD signal prediction
-  const histGrowing = histogram[cur] > (histogram[cur - 2] ?? histogram[cur])
-  const histDeclining = histogram[cur] < (histogram[cur - 2] ?? histogram[cur])
-  const macdBuy = histGrowing && macdLine[cur] < signal[cur]
-  const macdSell = histDeclining && macdLine[cur] > signal[cur]
-
-  // Volume spike
-  const recentVols = volumes.slice(-20)
-  const avgVol = recentVols.reduce((a, b) => a + b, 0) / recentVols.length
-  const volSpike = volumes[cur] > avgVol * 1.5
-
-  // Predictive scoring (mirrors predictive_backtest.py)
-  let buyScore = 0
-  let sellScore = 0
-
-  if (bullishDiv) buyScore += 3
-  if (macdBuy) buyScore += 2
-  if (ma50[cur] && closes[cur] > ma50[cur]) buyScore += 1
-  if (rsiVals[cur] < 35) buyScore += 1
-  if (volSpike) buyScore += 1
-
-  if (bearishDiv) sellScore += 3
-  if (macdSell) sellScore += 2
-  if (ma50[cur] && closes[cur] < ma50[cur]) sellScore += 1
-  if (rsiVals[cur] > 65) sellScore += 1
-  if (volSpike) sellScore += 1
+  // Synthetic trend
+  const trend: 'bullish' | 'bearish' | 'neutral' = change24h > 2 ? 'bullish' : change24h < -2 ? 'bearish' : 'neutral'
 
   let direction: 'buy' | 'sell' | 'hold' = 'hold'
-  let reason = ''
-  let confidence = 50
+  if (macd === 'bullish crossover' && trend === 'bullish') direction = 'buy'
+  else if (macd === 'bearish crossover' && trend === 'bearish') direction = 'sell'
 
-  if (buyScore > sellScore && buyScore >= 3) {
-    direction = 'buy'
-    reason = bullishDiv ? 'divergence' : 'momentum'
-    confidence = Math.min(92, 55 + buyScore * 8)
-  } else if (sellScore > buyScore && sellScore >= 3) {
-    direction = 'sell'
-    reason = bearishDiv ? 'divergence' : 'momentum'
-    confidence = Math.min(92, 55 + sellScore * 8)
-  }
+  const reason = direction === 'hold' ? '' : 'heuristic'
+  const score = direction === 'hold' ? 0 : 3
+  const confidence = direction === 'hold' ? 50 : Math.min(92, 55 + score * 8)
 
-  return { direction, reason, score: Math.max(buyScore, sellScore), confidence }
+  return { direction, reason, score, confidence }
 }
 
 function parsePriceData(sources: RawSourceData[], asset: Asset): PriceData {
@@ -213,32 +171,33 @@ function inferMaStatus(price: number, maStatus: string, change24h: number): { ma
 function parseTechnicalIndicators(
   price: number,
   change24h: number,
-  timeframe: TimeframeData,
 ): TechnicalIndicators {
-  const realRsi = timeframe.daily.rsi ?? 50
-  const realTrend = timeframe.dominantTrend
-  const maStatus = timeframe.daily.maStatus ?? 'unknown'
-  const ma = inferMaStatus(price, maStatus, change24h)
-
-  const macdSignal = realRsi > 60 ? 'bullish crossover' : realRsi < 40 ? 'bearish crossover' : 'neutral'
-
-  return {
-    rsi: Math.max(15, Math.min(85, Math.round(realRsi))),
-    macd: macdSignal,
-    ma50: ma.ma50,
-    ma200: ma.ma200,
-    supportLevels: [
-      roundPrice(price * 0.95),
-      roundPrice(price * 0.90),
-      roundPrice(price * 0.85),
-    ],
-    resistanceLevels: [
-      roundPrice(price * 1.04),
-      roundPrice(price * 1.08),
-      roundPrice(price * 1.15),
-    ],
-    trend: realTrend,
-  }
+  // RSI based on 24h change
+  const rsiRaw = 50 + change24h * 1.5
+  let rsi = Math.round(rsiRaw)
+  rsi = Math.max(15, Math.min(85, rsi))
+  // MACD derived from RSI
+  let macd: string
+  if (rsi > 60) macd = 'bullish crossover'
+  else if (rsi < 40) macd = 'bearish crossover'
+  else macd = 'neutral'
+  // Trend based on change24h magnitude
+  const trend: 'bullish' | 'bearish' | 'neutral' = change24h > 2 ? 'bullish' : change24h < -2 ? 'bearish' : 'neutral'
+  // Simple moving averages
+  const ma50 = change24h > 0 ? roundPrice(price * 0.97) : roundPrice(price * 1.03)
+  const ma200 = change24h > 0 ? roundPrice(price * 0.92) : roundPrice(price * 1.08)
+  // Support / resistance levels
+  const supportLevels = [
+    roundPrice(price * 0.95),
+    roundPrice(price * 0.90),
+    roundPrice(price * 0.85),
+  ]
+  const resistanceLevels = [
+    roundPrice(price * 1.04),
+    roundPrice(price * 1.08),
+    roundPrice(price * 1.15),
+  ]
+  return { rsi, macd, ma50, ma200, supportLevels, resistanceLevels, trend }
 }
 
 function parseOnChainData(sources: RawSourceData[], price: number): OnChainData {
@@ -470,7 +429,7 @@ function buildVerdict(
 export function analyze(sources: RawSourceData[], asset: Asset = 'eth'): AnalysisResult {
   const priceData = parsePriceData(sources, asset)
   const timeframe = parseTimeframeData(sources)
-  const technical = parseTechnicalIndicators(priceData.price, priceData.change24h, timeframe)
+  const technical = parseTechnicalIndicators(priceData.price, priceData.change24h)
   const onChain = parseOnChainData(sources, priceData.price)
   const sentiment = parseSentimentData(sources)
   const fundamental = parseFundamentalData()

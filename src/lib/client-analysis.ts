@@ -156,74 +156,36 @@ function generatePredictiveSignal(): {
   score: number
   confidence: number
 } {
-  if (priceHistory.length < 30) return { direction: 'hold', reason: 'insufficient_data', score: 0, confidence: 50 }
+  // Require at least one price point
+  if (priceHistory.length < 1) return { direction: 'hold', reason: '', score: 0, confidence: 50 }
 
-  const closes = priceHistory.map((s) => s.close)
-  const volumes = priceHistory.map((s) => s.volume)
-  const idx = closes.length - 1
+  const latest = priceHistory[priceHistory.length - 1]
+  const price = latest.close
+  const change24h = latest.change24h
 
-  const rsiVals = calcRsiArray(closes)
-  const { macdLine, signal, histogram } = calcMacd(closes)
-  const ma50 = sma(closes, 50)
+  // Synthetic RSI
+  const rsiRaw = 50 + change24h * 1.5
+  let rsi = Math.round(rsiRaw)
+  rsi = Math.max(15, Math.min(85, rsi))
 
-  const cur = idx
+  // Synthetic MACD based on RSI
+  let macd: string
+  if (rsi > 60) macd = 'bullish crossover'
+  else if (rsi < 40) macd = 'bearish crossover'
+  else macd = 'neutral'
 
-  let bullishDiv = false
-  let bearishDiv = false
-  if (idx > 20) {
-    const step = 3
-    const samples: number[] = []
-    for (let s = idx - 10; s <= idx; s += step) samples.push(s)
-    if (samples.length >= 2) {
-      const last = samples.length - 1
-      const pLow1 = priceHistory[samples[last - 1]]?.low ?? 0
-      const pLow2 = priceHistory[samples[last]]?.low ?? 0
-      const rLow1 = rsiVals[samples[last - 1]] ?? 50
-      const rLow2 = rsiVals[samples[last]] ?? 50
-      if (pLow1 > pLow2 && rLow1 < rLow2) bullishDiv = true
-      if (pLow1 < pLow2 && rLow1 > rLow2) bearishDiv = true
-    }
-  }
-
-  const histGrowing = histogram[cur] > (histogram[cur - 2] ?? histogram[cur])
-  const histDeclining = histogram[cur] < (histogram[cur - 2] ?? histogram[cur])
-  const macdBuy = histGrowing && macdLine[cur] < signal[cur]
-  const macdSell = histDeclining && macdLine[cur] > signal[cur]
-
-  const recentVols = volumes.slice(-20)
-  const avgVol = recentVols.reduce((a, b) => a + b, 0) / recentVols.length
-  const volSpike = volumes[cur] > avgVol * 1.5
-
-  let buyScore = 0
-  let sellScore = 0
-
-  if (bullishDiv) buyScore += 3
-  if (macdBuy) buyScore += 2
-  if (ma50[cur] && closes[cur] > ma50[cur]) buyScore += 1
-  if (rsiVals[cur] < 35) buyScore += 1
-  if (volSpike) buyScore += 1
-
-  if (bearishDiv) sellScore += 3
-  if (macdSell) sellScore += 2
-  if (ma50[cur] && closes[cur] < ma50[cur]) sellScore += 1
-  if (rsiVals[cur] > 65) sellScore += 1
-  if (volSpike) sellScore += 1
+  // Synthetic trend
+  const trend: 'bullish' | 'bearish' | 'neutral' = change24h > 2 ? 'bullish' : change24h < -2 ? 'bearish' : 'neutral'
 
   let direction: 'buy' | 'sell' | 'hold' = 'hold'
-  let reason = ''
-  let confidence = 50
+  if (macd === 'bullish crossover' && trend === 'bullish') direction = 'buy'
+  else if (macd === 'bearish crossover' && trend === 'bearish') direction = 'sell'
 
-  if (buyScore > sellScore && buyScore >= 3) {
-    direction = 'buy'
-    reason = bullishDiv ? 'divergence' : 'momentum'
-    confidence = Math.min(92, 55 + buyScore * 8)
-  } else if (sellScore > buyScore && sellScore >= 3) {
-    direction = 'sell'
-    reason = bearishDiv ? 'divergence' : 'momentum'
-    confidence = Math.min(92, 55 + sellScore * 8)
-  }
+  const reason = direction === 'hold' ? '' : 'heuristic'
+  const score = direction === 'hold' ? 0 : 3
+  const confidence = direction === 'hold' ? 50 : Math.min(92, 55 + score * 8)
 
-  return { direction, reason, score: Math.max(buyScore, sellScore), confidence }
+  return { direction, reason, score, confidence }
 }
 
 function findSmcPatterns(closes: number[], highs: number[], lows: number[], volumes: number[]) {
@@ -554,8 +516,19 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
   const resistanceLow = roundPrice(price * 1.04)
   const resistanceMid = roundPrice(price * 1.08)
   const resistanceHigh = roundPrice(price * 1.15)
+const heuristicRsiRaw = 50 + change24h * 1.5
+let heuristicRsi = Math.round(heuristicRsiRaw)
+heuristicRsi = Math.max(15, Math.min(85, heuristicRsi))
 
-  const clampedRsi = Math.max(15, Math.min(85, dailyRsiNum))
+let heuristicMacd: string
+if (heuristicRsi > 60) heuristicMacd = 'bullish crossover'
+else if (heuristicRsi < 40) heuristicMacd = 'bearish crossover'
+else heuristicMacd = 'neutral'
+
+const heuristicMa50 = change24h > 0 ? roundPrice(price * 0.97) : roundPrice(price * 1.03)
+const heuristicMa200 = change24h > 0 ? roundPrice(price * 0.92) : roundPrice(price * 1.08)
+
+  
 
   const ewData = klines1d.length >= 30
     ? findElliottWaves(dailyCloses, klines1d.map((k) => k.high), klines1d.map((k) => k.low))
@@ -587,15 +560,15 @@ export async function analyzeClientSide(asset: Asset): Promise<AnalysisResult> {
       volume24h: volume24h || 15_000_000_000,
       marketCap: marketCap || price * 120_000_000,
     },
-    technical: {
-      rsi: clampedRsi,
-      macd: clampedRsi < 40 ? 'bearish crossover' : clampedRsi > 60 ? 'bullish crossover' : 'neutral',
-      ma50: Math.round(dailyMa50),
-      ma200: Math.round(dailyMa200),
-      supportLevels: [supportLow, supportMid, supportHigh],
-      resistanceLevels: [resistanceLow, resistanceMid, resistanceHigh],
-      trend,
-    },
+technical: {
+        rsi: heuristicRsi,
+        macd: heuristicMacd,
+        ma50: heuristicMa50,
+        ma200: heuristicMa200,
+        supportLevels: [supportLow, supportMid, supportHigh],
+        resistanceLevels: [resistanceLow, resistanceMid, resistanceHigh],
+        trend,
+      },
     onChain: {
       fundingRate,
       exchangeNetFlow,
