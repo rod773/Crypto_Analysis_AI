@@ -22,6 +22,15 @@ Generates synthetic indicators based on 24h price change:
 | **Supports** | Price × 0.95, 0.90, 0.85 |
 | **Resistances** | Price × 1.04, 1.08, 1.15 |
 
+**Heuristic Signal**
+
+The heuristic combines the synthetic MACD and trend:
+
+- **BUY** – when MACD bullish **and** trend bullish.
+- **SELL** – when MACD bearish **and** trend bearish.
+- **HOLD** – otherwise.
+
+
 > **Note:** These are synthetic indicators calculated from 24h price change, not from real historical candlestick series.
 
 ### 2. Elliott Wave Analysis (`parseElliottWaveData`)
