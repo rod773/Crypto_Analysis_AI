@@ -178,21 +178,23 @@ void OnTick()
    if(sig==1 && haveShort)  CloseAll();
    if(sig==-1 && haveLong)  CloseAll();
 
-   //--- open new positions if signal is BUY/SELL and none exists
-   if(sig==1 && !haveLong)
-   {
-      double sl = ti.support[0];
-      double tp = ti.resistance[0];
-      trade.SetExpertMagicNumber((ulong)123456);
-      trade.Buy(Lots,_Symbol,0,sl,tp,Slippage);
-   }
-   else if(sig==-1 && !haveShort)
-   {
-      double sl = ti.resistance[0];
-      double tp = ti.support[0];
-      trade.SetExpertMagicNumber((ulong)123456);
-      trade.Sell(Lots,_Symbol,0,sl,tp,Slippage);
-   }
+    //--- TP/SL multipliers matching the Next.js app (analysis.ts / client-analysis.ts)
+    double slBuy  = RoundPrice(price * 0.94);
+    double tpBuy  = RoundPrice(price * 1.12);
+    double slSell = RoundPrice(price * 1.06);
+    double tpSell = RoundPrice(price * 0.90);
+
+    //--- open new positions if signal is BUY/SELL and none exists
+    if(sig==1 && !haveLong)
+    {
+       trade.SetExpertMagicNumber((ulong)123456);
+       trade.Buy(Lots,_Symbol,0,slBuy,tpBuy,Slippage);
+    }
+    else if(sig==-1 && !haveShort)
+    {
+       trade.SetExpertMagicNumber((ulong)123456);
+       trade.Sell(Lots,_Symbol,0,slSell,tpSell,Slippage);
+    }
 
    //--- optional trailing stop placeholder
    // if(UseTrailingStop) { /* add trailing‑stop handling here */ }
