@@ -5,7 +5,7 @@
 #property copyright   "OpenCode"
 #property link        "https://github.com/your-repo"
 #property version     "1.00"
-#property script_show_inputs
+
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -117,11 +117,12 @@ TechnicalIndicators ParseTechnicalIndicators(double price,double change24h)
 //==================================================================
 int HeuristicSignal(const TechnicalIndicators &ti)
 {
-   if(ti.macd=="bullish crossover" && ti.trend=="bullish")
-      return 1;   // BUY
-   if(ti.macd=="bearish crossover" && ti.trend=="bearish")
-      return -1;  // SELL
-   return 0;      // HOLD
+   // Use trend alone for signal: bullish => BUY, bearish => SELL, neutral => HOLD
+   if(ti.trend=="bullish")
+      return 1;
+   if(ti.trend=="bearish")
+      return -1;
+   return 0;
 }
 
 //==================================================================
@@ -183,14 +184,14 @@ void OnTick()
       double sl = ti.support[0];
       double tp = ti.resistance[0];
       trade.SetExpertMagicNumber((ulong)123456);
-      trade.Buy(Lots,_Symbol,price,sl,tp,Slippage);
+      trade.Buy(Lots,_Symbol,0,sl,tp,Slippage);
    }
    else if(sig==-1 && !haveShort)
    {
       double sl = ti.resistance[0];
       double tp = ti.support[0];
       trade.SetExpertMagicNumber((ulong)123456);
-      trade.Sell(Lots,_Symbol,price,sl,tp,Slippage);
+      trade.Sell(Lots,_Symbol,0,sl,tp,Slippage);
    }
 
    //--- optional trailing stop placeholder
