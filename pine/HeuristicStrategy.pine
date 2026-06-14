@@ -1,0 +1,75 @@
+//@version=5
+indicator("Heuristic Strategy", overlay=true, shorttitle="Heuristic")
+
+// ---------------------------------------------------------------
+// 1️⃣ 24‑hour change (based on daily close)
+// ---------------------------------------------------------------
+float dailyPrevClose = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_on)
+float change24h = (close - dailyPrevClose) / dailyPrevClose * 100.0
+
+// ---------------------------------------------------------------
+// 2️⃣ Synthetic RSI (clamped to 15‑85)
+// ---------------------------------------------------------------
+float rsiRaw = 50.0 + change24h * 1.5
+int   rsiClamped = math.round(rsiRaw)
+rsiClamped := math.max(15, math.min(85, rsiClamped))
+
+// ---------------------------------------------------------------
+// 3️⃣ MACD synthetic decision (based on RSI)
+// ---------------------------------------------------------------
+string macd = rsiClamped > 60 ? "bullish crossover" : rsiClamped < 40 ? "bearish crossover" : "neutral"
+
+// ---------------------------------------------------------------
+// 4️⃣ Trend based on 24‑h % change
+// ---------------------------------------------------------------
+string trend = change24h > 2.0 ? "bullish" : change24h < -2.0 ? "bearish" : "neutral"
+
+// ---------------------------------------------------------------
+// 5️⃣ Synthetic Moving Averages (price * factor)
+// ---------------------------------------------------------------
+float ma50  = change24h > 0 ? close * 0.97 : close * 1.03
+float ma200 = change24h > 0 ? close * 0.92 : close * 1.08
+
+// ---------------------------------------------------------------
+// 6️⃣ Support / Resistance levels (price * factor)
+// ---------------------------------------------------------------
+float sup1 = close * 0.95
+float sup2 = close * 0.90
+float sup3 = close * 0.85
+float res1 = close * 1.04
+float res2 = close * 1.08
+float res3 = close * 1.15
+
+// ---------------------------------------------------------------
+// 7️⃣ Heuristic signal (buy / sell / hold)
+// ---------------------------------------------------------------
+int signal = macd == "bullish crossover" and trend == "bullish" ? 1 :
+             macd == "bearish crossover" and trend == "bearish" ? -1 : 0
+
+// ---------------------------------------------------------------
+// Plotting
+// ---------------------------------------------------------------
+// Synthetic MA lines (optional visual aid)
+plot(ma50,   title="Synthetic MA50",   color=color.new(color.blue,   0),   linewidth=1)
+plot(ma200,  title="Synthetic MA200",  color=color.new(color.orange,0),   linewidth=1)
+
+// Support / resistance as thin gray lines (transparent for readability)
+plot(sup1, title="Support 0.95", color=color.new(color.gray, 80), linewidth=1, style=plot.style_linebr)
+plot(sup2, title="Support 0.90", color=color.new(color.gray, 80), linewidth=1, style=plot.style_linebr)
+plot(sup3, title="Support 0.85", color=color.new(color.gray, 80), linewidth=1, style=plot.style_linebr)
+plot(res1, title="Resistance 1.04", color=color.new(color.gray, 80), linewidth=1, style=plot.style_linebr)
+plot(res2, title="Resistance 1.08", color=color.new(color.gray, 80), linewidth=1, style=plot.style_linebr)
+plot(res3, title="Resistance 1.15", color=color.new(color.gray, 80), linewidth=1, style=plot.style_linebr)
+
+// Signal arrows
+plotshape(signal ==  1, title="Buy",  location=location.belowbar,   color=color.new(color.lime,0), style=shape.triangleup,   size=size.tiny, text="Buy")
+plotshape(signal == -1, title="Sell", location=location.abovebar,   color=color.new(color.red,0),  style=shape.triangledown, size=size.tiny, text="Sell")
+
+// Display heuristic RSI in the Data Window (optional)
+plotchar(rsiClamped, title="Heuristic RSI", location=location.bottom, char='R', color=color.yellow)
+
+// Tooltip description (optional) – shows key values on hover
+var label info = na
+if barstate.islast
+    label.delete(info)
+    info := label.new(x=bar_index, y=high, text="RSI:"+str.tostring(rsiClamped)+"  MACD:"+macd+"  Trend:"+trend, style=label.style_label_down, color=color.new(color.black,90), textcolor=color.white, size=size.tiny, yloc=yloc.price)
